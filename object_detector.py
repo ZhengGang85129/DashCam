@@ -1,5 +1,4 @@
 import torch
-import torchvision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, FasterRCNN_ResNet50_FPN_Weights
 from torchvision.utils import draw_bounding_boxes
 import os
@@ -50,21 +49,40 @@ def show(imgs):
         axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
     plt.savefig('123.png')
 
-if __name__ == '__main__':
-    video_path = './dataset/train/extracted/00413.mp4'
-    frames = load_video(video_path)
+class FeatureExtractor:
+    def __init__(self, )->None:
+        
+        self.weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT
+        self.model = fasterrcnn_resnet50_fpn(weights = self.weights, progress = False)
+        self.model.eval()
+        self.class_name = self.weights.meta["categories"]
+        self.transforms = self.weights.transforms()
     
-    weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT
-    model = fasterrcnn_resnet50_fpn(weights = weights, progress = False)
-    model.eval()
-    class_name = weights.meta["categories"]
-    #print(len(frames))
-    transforms = weights.transforms()
-    img = transforms(frames[0].permute(2, 0, 1))
-    detection_outputs = model(img.unsqueeze(0))
-    output = detection_outputs[0] 
-    score_threshold = .8
-    dogs_with_boxes = [
-        draw_bounding_boxes(img, boxes = output['boxes'][output['scores'] > score_threshold], width=4)
-    ]
-    show(dogs_with_boxes)
+    def process_video(self) -> None:
+        video_path = './dataset/train/extracted/00227.mp4'
+        frames = load_video(video_path)
+        img = self.transforms(frames[0].permute(2, 0, 1))
+        detection_outputs = self.model(img.unsqueeze(0))
+        output = detection_outputs[0] 
+        score_threshold = .8
+        #vehicle = torch.tensor(['car', 'bicycle', 'person', 'bus', 'motorcycle', 'truck'])
+        vehicle_label = [2, 3, 4, 6, 8] # class labels for 'car', 'bicycle', 'bus', 'motocycle', 'truck' in FasterRCNN_ResNet50_FPN_Weights  
+        class_mask = torch.isin(output['labels'], 
+                    torch.tensor(vehicle_label, dtype=torch.int64))
+        
+        score_mask = output['scores'] > score_threshold
+        class_mask = class_mask[score_mask] 
+        boxes = output['boxes'][score_mask] 
+        
+        pass
+
+
+
+
+
+if __name__ == '__main__':
+    #dogs_with_boxes = [
+    #    draw_bounding_boxes(img, boxes = boxes[class_mask], width=4)
+    #]
+    #show(dogs_with_boxes)
+    
