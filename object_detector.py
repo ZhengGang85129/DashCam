@@ -49,8 +49,8 @@ def show(imgs):
         axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
     plt.savefig('123.png')
 
-class FeatureExtractor:
-    def __init__(self, )->None:
+class ObjectDetector:
+    def __init__(self)->None:
         
         self.weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT
         self.model = fasterrcnn_resnet50_fpn(weights = self.weights, progress = False)
@@ -58,6 +58,19 @@ class FeatureExtractor:
         self.class_name = self.weights.meta["categories"]
         self.transforms = self.weights.transforms()
     
+    def crop_by_box(self, img, box: List[int]):
+        """
+        """
+        x_min, y_min, x_max, y_max = [int(coord) for coord in box]
+        
+        return img[:, y_min:y_max, x_min:x_max]
+    
+    def plot_object(self, objects: List[torch.Tensor])->None:
+        
+        for i in range(len(objects)):   
+            plt.imshow(objects[i].permute(1, 2, 0).detach().cpu().numpy())
+            plt.savefig(f'object-{i:02d}.png') 
+        
     def process_video(self) -> None:
         video_path = './dataset/train/extracted/00227.mp4'
         frames = load_video(video_path)
@@ -73,8 +86,10 @@ class FeatureExtractor:
         score_mask = output['scores'] > score_threshold
         class_mask = class_mask[score_mask] 
         boxes = output['boxes'][score_mask] 
+        objects = [self.crop_by_box(img, box) for box in boxes ]
+        #self.plot_object(objects)  -> can use this function to plot the object "cropped" by the faster r-cnn
         
-        pass
+        return objects
 
 
 
@@ -85,4 +100,7 @@ if __name__ == '__main__':
     #    draw_bounding_boxes(img, boxes = boxes[class_mask], width=4)
     #]
     #show(dogs_with_boxes)
-    
+    start = time.time()
+    detector = ObjectDetector()
+    print(detector.process_video())
+    print(time.time() - start, ' sec')
