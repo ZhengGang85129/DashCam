@@ -78,7 +78,7 @@ class VideoDataset(Dataset):
             idx (int): Index of video file
             
         Returns:
-            torch.Tensor: Tensor of shape (clip_len, channels, height, width)
+            torch.Tensor: Tensor of shape (n_frames, channels, height, width)
         """
         video_path = self.video_files[idx]
         frames = self.__load_video(video_path)
