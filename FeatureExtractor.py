@@ -2,7 +2,6 @@ import torch
 from torchvision.models import vgg16, VGG16_Weights
 import os
 import torch.nn as nn
-from torchsummary import summary 
 from torchvision.transforms import transforms
 
 os.environ['TORCH_HOME'] = os.getcwd() #will download model weights to your current work directory
@@ -28,20 +27,16 @@ class FeatureExtractor(nn.Module):
          
         self.eval()
         
-    def forward(self, x):
-        print(f'stage 1: {x.shape}')
+    def forward(self, x: torch.Tensor):
+        '''
+        Args:
+        x(torch.Tensor, batch_size, channel, width, height)
+        '''
+        x = x.unsqueeze(0)
         x = self.transform(x)
-        print(f'stage 2: {x.shape}')
-        x  = self.features(x)
-        print(f'stage 3: {x.shape}')
+        x = self.features(x)
         x = torch.flatten(x, 1)
-        print(f'stage 4: {x.shape}')
         x = self.classifer(x)
-        print(f'stage 5: {x.shape}')
+        x = x.squeeze(0)
         return x
 
-
-if __name__ == '__main__':
-    model = FeatureExtractor()
-    x = torch.zeros([1, 3, 720, 480])
-    model(x) 
