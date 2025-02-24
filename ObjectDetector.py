@@ -67,7 +67,9 @@ class ObjectDetector(nn.Module):
         objects = []
         objects_mask = []
         objects_features = []
+        fullframe_features = []
         for batch_index in range(batch_size):
+            fullframe_features.append(self.extractor(images[batch_index]))
             object_holder = torch.zeros((self.max_num_objects, 4))
             
             output = detection_outputs[batch_index]
@@ -105,8 +107,8 @@ class ObjectDetector(nn.Module):
         Objects = torch.stack(objects, dim = 0)
         Object_features = torch.stack(objects_features, dim = 0)
         Objects_mask = torch.stack(objects_mask, dim = 0) 
-        
-        return Objects, Object_features, Objects_mask 
+        FullFrame_features = torch.stack(fullframe_features, dim = 0) 
+        return Objects, Object_features, Objects_mask, FullFrame_features 
 
      
 
@@ -134,7 +136,7 @@ if __name__ == '__main__':
         n_frames = batch.shape[1]
         for frame_idx in range(n_frames): 
             with torch.no_grad():
-                objects, objects_features, objects_mask = detector(batch[:, frame_idx,:,:,:])
+                objects, objects_features, objects_mask, fullframe_features = detector(batch[:, frame_idx,:,:,:])
             #for video in batch:
             #print(batch.shape)
             #    detector(video[0])
