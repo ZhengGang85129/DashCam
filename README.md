@@ -20,9 +20,9 @@ pip3 install torchsummary
 ```
 kaggle competitions download -c nexar-collision-prediction
 ```
-This requires your authentication key and account ID, please follow [here](https://github.com/Kaggle/kaggle-api#download-dataset-files) for more details.
+* This requires your authentication key and account ID, please follow [here](https://github.com/Kaggle/kaggle-api#download-dataset-files) for more details.
 
-After downloading the data and unfolding the zip file, please rename the folder as "dataset". Then, run "./traindataset_frames_extraction.py" to do the data preprocessing.
+* After downloading the data and unfolding the zip file, please rename the folder as "dataset". Then, run "./traindataset_frames_extraction.py" to do the data preprocessing.
 ```
 python3 ./traindataset_frames_extraction.py
 ```
