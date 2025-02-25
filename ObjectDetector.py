@@ -92,7 +92,7 @@ class ObjectDetector(nn.Module):
             boxes = boxes[top_k_indices]
             object_holder[:n_objects] = boxes
             
-            obj_mask_holder = torch.ones((self.max_num_objects)) # Will mask the empty position which does not have object. 
+            obj_mask_holder = torch.ones((self.max_num_objects),  dtype = torch.bool) # Will mask the empty position which does not have object. 
             obj_mask_holder[n_objects:] = 0
             objects.append(object_holder)
             objects_mask.append(obj_mask_holder)
@@ -100,7 +100,7 @@ class ObjectDetector(nn.Module):
             feature_holder = torch.zeros((self.max_num_objects, 4096))
             
             for obj_idx in range(n_objects):
-                print(images[batch_index, :, int(object_holder[obj_idx][1].item()):int(object_holder[obj_idx][3].item()), int(object_holder[obj_idx][0].item()):int(object_holder[obj_idx][2].item())].shape)
+                #print(images[batch_index, :, int(object_holder[obj_idx][1].item()):int(object_holder[obj_idx][3].item()), int(object_holder[obj_idx][0].item()):int(object_holder[obj_idx][2].item())].shape)
                 feature = self.extractor(images[batch_index, :, int(object_holder[obj_idx][1].item()):int(object_holder[obj_idx][3].item()), int(object_holder[obj_idx][0].item()):int(object_holder[obj_idx][2].item())])
                 feature_holder[obj_idx] = feature 
             objects_features.append(feature_holder) 
