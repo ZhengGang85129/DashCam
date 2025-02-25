@@ -3,8 +3,8 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, parent_dir)
 from model  import LSTM_cell, DSA_RNN # type: ignore
 import torch
-from dataset import VideoDataset
-
+from dataset import VideoDataset # type: ignore
+from loss import AnticipationLoss # type: ignore
 
 feat = (torch.randn((1, 20, 4096)), torch.randn((1, 1, 4096)))
 state = (torch.randn((1, 1, 256)), torch.randn((1, 1, 256)))
@@ -26,6 +26,12 @@ if __name__ == "__main__":
         n_frames = data.shape[1]
         print('x -> ', data.shape)
         output, _ = model(x = data)
+        loss = AnticipationLoss()    
+        print(output.shape)
         print(output)
+        loss(output, output)
         break
-        #model(data) 
+        #model(data)
+    output = torch.rand((4, 100))
+    
+    
