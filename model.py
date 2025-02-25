@@ -96,12 +96,14 @@ class LSTM_cell(nn.Module):
         new_h = o * torch.tanh(new_c)
         #print('new_h: ', new_h.shape)
         #print('new_c: ', new_c.shape)
+        
         return new_h, new_c
 
 class DSA_RNN(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers=1):
+    def __init__(self, input_size:int = 4096, hidden_size:int = 256, num_layers: int = 1):
         super(DSA_RNN, self).__init__()
         self.input_size = input_size
+        assert self.input_size == 4096 # output dimension gauged by faster r-cnn
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.lstm = nn.ModuleList(
@@ -111,13 +113,14 @@ class DSA_RNN(nn.Module):
         
         self.object_detector = object_detector(score_threshold = 0.8, max_num_objects = 20)
         self.object_detector.eval()
+        self.fc = nn.Linear(hidden_size, 1)
          
     def forward(self, x: torch.Tensor, initial_state: Tuple[torch.Tensor, torch.Tensor] = None):
         """
         Forward pass of stacked LSTM
         
         Args:
-            x: Input tensor of shape (batch_size, n_frames, n_objects, input_size)
+            x(numerical representation of video): Input tensor of shape (batch_size, n_frames, n_channel, width, height)
             initial_states: Optional tuple of (h_0, c_0) for all layers
                           Each of shape (num_layers, batch_size, hidden_size)
         
@@ -132,7 +135,7 @@ class DSA_RNN(nn.Module):
             c_0 = torch.zeros((batch_size, 1, self.hidden_size), device = x.device)
         else:
             h_0, c_0 = initial_state
-        
+        assert self.num_layers == 1 #FIX ME : Can only handle one layer now 
         h_states = [h_0 for _ in range(self.num_layers)]
         c_states = [c_0 for _ in range(self.num_layers)]
         
@@ -143,18 +146,17 @@ class DSA_RNN(nn.Module):
             with torch.no_grad():
                 _, objects_features, objects_mask, fullframe_features = self.object_detector(current_frame)
                 
-            for layer in range(self.num_layers):
-                if layer == 0:
+            for layer in range(self.num_layers): #FIX can only handle one layer
+                if layer == 0: 
                     x_t = (objects_features, objects_mask, fullframe_features)
                 else:
                     x_t = h_states[layer-1]
+                
                 h_states[layer], c_states[layer] = self.lstm[layer](
                     x_t, (h_states[layer], c_states[layer]) 
                 )
-            out_sequence.append(h_states[-1])
-        
+            out_sequence.append(torch.sigmoid(self.fc(h_states[-1])).squeeze(-1).squeeze(-1))
         output = torch.stack(out_sequence, dim=1)
-        
         # Stack final hidden and cell states
         h_n = torch.stack(h_states, dim=0)
         c_n = torch.stack(c_states, dim=0)
