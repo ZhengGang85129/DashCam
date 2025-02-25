@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 import cv2
 from typing import List, Tuple
-
+import pandas as pd
 class VideoDataset(Dataset):
     """
     Custom dataset for loading video files from a directory.
@@ -12,6 +12,7 @@ class VideoDataset(Dataset):
     def __init__(
         self,
         root_dir: str = "./dataset/train/extracted",
+        csv_file: str = './dataset/train.csv',
         #transform: Optional[transforms.Compose] = None,
         resize_shape: Tuple[int, int] = (224, 224)
     ):
@@ -24,12 +25,16 @@ class VideoDataset(Dataset):
         """
         self.root_dir = root_dir
         self.resize_shape = resize_shape
-        
+        self.data_frame = pd.read_csv(csv_file)
+        self.video_indices = self.data_frame['id'].to_list() 
         # Get all MP4 files in the directory
-        self.video_files = []
-        for file in os.listdir(root_dir):
-            if file.endswith('.mp4'):
-                self.video_files.append(os.path.join(root_dir, file))
+        self.video_files = dict()
+        global_index = 0
+        for Index in self.video_indices:
+            file = os.path.join(root_dir, f'{Index:05d}.mp4')
+            if os.path.isfile(file):
+                self.video_files[global_index] = (file, self.data_frame[self.data_frame['id'] == Index]['target'].item())
+                global_index += 1 
                 
         if not self.video_files:
             raise RuntimeError(f"No MP4 files found in {root_dir}")
@@ -70,7 +75,7 @@ class VideoDataset(Dataset):
         return frames 
         
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Get a video clip from the dataset.
         
@@ -80,12 +85,11 @@ class VideoDataset(Dataset):
         Returns:
             torch.Tensor: Tensor of shape (n_frames, channels, height, width)
         """
-        video_path = self.video_files[idx]
+        video_path,  target = self.video_files[idx]
         frames = self.__load_video(video_path)
         # Stack frames into a single tensor
         clip = torch.stack(frames)
-        return clip.permute(0, 3, 1, 2)
-
+        return clip.permute(0, 3, 1, 2), target
 # Example usage:
 if __name__ == "__main__":
     # Create dataset
@@ -105,5 +109,6 @@ if __name__ == "__main__":
     # Example iteration
     for batch in dataloader:
         # batch shape: (batch_size, clip_len, channels, height, width)
-        print(f"Batch shape: {batch.shape}")
+        video, target = batch
+        print(video.shape, target.shape)
         break
