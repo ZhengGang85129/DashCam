@@ -59,6 +59,9 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
     
     return (mPrec, mRecall) 
 
+def evaluation()->Tuple[float, float]:
+    mPrec, mRecall = 0.0, 0.0
+    return (mPrec, mRecall) 
 
 def main():
     global logger, device
@@ -78,7 +81,7 @@ def main():
      
     for epoch in range(epochs):
         train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
-    
+        #FIX ME evaluation(...) 
     return
 
 
