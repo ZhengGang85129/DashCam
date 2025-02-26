@@ -15,7 +15,7 @@ class AnticipationLoss(nn.Module):
         """
         y = targets.unsqueeze(1)
         t_step = torch.arange(start = 0, end = prob.shape[1]).unsqueeze(0).to(prob.device) 
-        loss = - y * torch.exp(- torch.relu(self.pivot_frame_index - t_step)/self.decay_nframe) * torch.log(prob) - (1 - y) * torch.log(prob) 
+        loss = - y * torch.exp(- torch.relu(self.pivot_frame_index - t_step)/self.decay_nframe) * torch.log(prob) - (1 - y) * torch.log(1. - prob) 
         loss = loss.mean().to(prob.device) 
         return loss 
 
