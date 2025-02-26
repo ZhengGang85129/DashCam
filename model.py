@@ -44,7 +44,7 @@ class LSTM_cell(nn.Module):
         for param in self.parameters():
             if len(param.shape) >= 2:
                 nn.init.xavier_uniform_(param)
-    def forward(self, feat: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], state:Tuple[torch.Tensor, torch.Tensor]):
+    def forward(self, feat: Tuple[torch.Tensor, torch.Tensor, torch.Tensor], state:Tuple[torch.Tensor, torch.Tensor])->Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass of LSTM Cell
         
@@ -53,7 +53,7 @@ class LSTM_cell(nn.Module):
             state: Tuple of (h, c) where both shapes are (batch_size, hidden_size)
             
         Returns:
-            new_h, new_c: Updated hidden and cell states
+            new_h, new_c: Updated hidden and cell states (batch_size, hidden_size)
         """
         h, c = state
         
@@ -120,7 +120,7 @@ class DSA_RNN(nn.Module):
         self.object_detector.eval()
         self.fc = nn.Linear(hidden_size, 1)
          
-    def forward(self, x: torch.Tensor, initial_state: Union[Tuple[torch.Tensor, torch.Tensor], None] = None):
+    def forward(self, x: torch.Tensor, initial_state: Union[Tuple[torch.Tensor, torch.Tensor], None] = None) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """
         Forward pass of stacked LSTM
         
@@ -130,8 +130,9 @@ class DSA_RNN(nn.Module):
                           Each of shape (num_layers, batch_size, hidden_size)
         
         Returns:
-            output: Sequence of hidden states for each time step
-            (h_n, c_n): Final hidden and cell states for each layer
+            output(torch.Tuple, (batch_size, n_frames)): Sequence of hidden states for each time step.
+            h_n(torch.Tuple, (batch_size, hidden_size)): Final hidden states for each layer.
+            c_n(torch.Tuple, (batch_size, hidden_size)): Final cell states for each layer.
         """
         batch_size, n_frames = x.shape[0], x.shape[1]
         
