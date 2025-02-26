@@ -162,14 +162,14 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
                         f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
                         f'Remain(estimation) {remain_time} '
                         f'Loss {(loss_meter.current_value):.3f} ({(loss_meter.avg_value):.3f}) '
-                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum ):.3f})'
+                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum +EPS ):.3f})'
                         )
     
     
-    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum ),
-            'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum),
+    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum  + EPS),
+            'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS),
             'mLoss': loss_meter.avg_value,
-            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum)
+            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS)
                 } 
 
 
@@ -234,23 +234,24 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
                         f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
                         f'Remain(estimation) {remain_time} '
                         f'Loss {(loss_meter.current_value):.3f} ({(loss_meter.avg_value):.3f}) '
-                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum ):.3f})'
+                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum + EPS):.3f})'
                         )
     
     
-    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum ),
-            'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum),
+    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum + EPS),
+            'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS),
             'mLoss': loss_meter.avg_value,
-            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum)
+            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS)
                 } 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS
     BATCH_SIZE = 16
     PRINT_FREQ = 4
     EPOCHS= 10
     LR_RATE = 0.01
     DEBUG = False
+    EPS = 1e-8
     set_seed(123)
     logger = get_logger()
     device = get_device()
