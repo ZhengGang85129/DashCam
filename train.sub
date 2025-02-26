@@ -1,0 +1,10 @@
+executable              = train.sh
+arguments               = $(ClusterId)$(ProcId)
+output                  = matrix.$(ClusterId).$(ProcId).out
+error                   = matrix.$(ClusterId).$(ProcId).err
+log                     = matrix.$(ClusterId).log 
+when_to_transfer_output = ON_EXIT
+request_GPUs = 1
+request_CPUs = 12
++JobFlavour = "workday"
+queue
