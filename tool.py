@@ -29,22 +29,22 @@ class Monitor(object):
         '0': {
             'name': 'mLoss',
             'title': 'Anticipation Loss',
-            'y_lim': (0.3, 0.6)
+            'y_lim': (0., 0.1)
         }, 
         '1': {
             'name': 'mPrec',
             'title': 'Averaged Precision',
-            'y_lim': (0.5, 1.1)
+            'y_lim': (0.4, 0.8)
         },
         '2': {
             'name': 'mRecall',
             'title': 'Averaged Recall',
-            'y_lim': (0.5, 1.1)
+            'y_lim': (0.4, 1.1)
         },
         '3': {
             'name': 'mAcc',
             'title': 'Averaged Accuracy',
-            'y_lim': (0.5, 1.1)
+            'y_lim': (0.4, 0.8)
         }
     }
     
