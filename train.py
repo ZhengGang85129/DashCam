@@ -7,9 +7,12 @@ from typing import Tuple, Dict
 from loss import AnticipationLoss
 from model import DSA_RNN
 import torch.nn as nn
-from tool import AverageMeter
+from tool import AverageMeter, Monitor
 import time
-
+import os
+from experiment.pseudo_Dataset import PseduoDataset
+import math
+import numpy as np
 
 def print_trainable_parameters(model):
     """Print only the trainable parts of the model architecture"""
@@ -52,20 +55,30 @@ def get_logger() -> logging.Logger:
     logger.addHandler(handler)
     return logger 
 
-def get_dataloader() -> torch.utils.data.DataLoader:
-    dataset = VideoDataset(
-        root_dir="./dataset/train/extracted",
-        resize_shape=(224, 224)  # Resize frames to 224x224
-    )
+def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     
-    # Create dataloader
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=4,
-        shuffle=True,
-        num_workers=4
-    )
-    return dataloader
+    if DEBUG:
+        dataset = PseduoDataset()
+    else:
+        dataset = VideoDataset(
+            root_dir="./dataset/train/extracted",
+            resize_shape=(224, 224)  # Resize frames to 224x224
+        )
+    
+    dataset_size = len(dataset)
+    indices = list(range(dataset_size))
+    np.random.shuffle(indices)
+
+    split = int(np.floor(val_ratio * dataset_size))
+    train_indices, val_indices = indices[split:], indices[:split]
+    train_dataset = torch.utils.data.Subset(dataset, train_indices)
+    val_dataset = torch.utils.data.Subset(dataset, val_indices)
+
+    # Create DataLoaders
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers = 4)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers = 4) 
+    
+    return train_loader, val_loader
 
 def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int, optimizer: torch.optim.Optimizer) -> Dict[str, float]:
     
@@ -87,15 +100,17 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
     dataset_per_epoch = len(train_loader)
     start = time.time() 
     
-    
+    logger.info(f'Train-procedure with {len(train_loader)} iterations') 
     for mini_batch_index, data in enumerate(train_loader):
         data_time.update(time.time() - start)
         X, target = data
+        X = X.to(device)
+        target = target.to(device)
         if not DEBUG:
-            output = model(X)
+            output, state = model(X)
         else:
             output = torch.randn(X.shape[0], 100).uniform_(0.45, 0.55)
-        output.requires_grad = True
+            output.requires_grad = True
         loss = criterion(output, target) 
         optimizer.zero_grad() 
         loss.backward() 
@@ -161,9 +176,12 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
     start = time.time() 
     
     
+    logger.info(f'Validation-procedure with {len(val_loader)} iterations') 
     for mini_batch_index, data in enumerate(val_loader):
         data_time.update(time.time() - start)
         X, target = data
+        X = X.to(device)
+        target = target.to(device)
         if not DEBUG:
             output = model(X) 
         else:
@@ -210,9 +228,9 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 def main():
     global logger, device, EPOCHS, PRINT_FREQ, DEBUG
-    PRINT_FREQ = 16
+    PRINT_FREQ = 4
     EPOCHS= 10
-    DEBUG = True
+    DEBUG = False
     logger = get_logger()
     device = get_device()
     logger.info('Set-up model') 
@@ -229,19 +247,46 @@ def main():
                                   lr = 0.001)
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}') 
+    logger.info(f'Load dataset...') 
+    train_dataloader, val_dataloader = get_dataloaders(val_ratio=0.2) 
+    os.makedirs('model', exist_ok = True) # save model parameters under this folder
+    os.makedirs('train', exist_ok = True)  # save training details under this folder
     
-    train_dataloader = get_dataloader() 
+    monitor = Monitor(save_path = 'train')
+    best_point_metrics = {
+        'mLoss': float('inf'),
+        'mPrec': -float('inf'),
+        'mRecall': -float('inf'),
+        'mAcc': -float('inf'),
+        'current_epoch': 0
+    }
+    
+    prev_loss = math.inf
      
     for epoch in range(EPOCHS):
         logger.info('Training...')
         train_metrics = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
-        valid_metric = validation(val_loader = train_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
+        valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
+        
+        if prev_loss > valid_metrics['mLoss']:
+            torch.save(model.state_dict(), 'model/best_model_ckpt.pt')
+            torch.save(optimizer.state_dict(), 'model/best_optim_ckpt.pt')
+            best_point_metrics.update(valid_metrics) 
+            prev_loss = valid_metrics['mLoss']
+             
+        torch.save(model.state_dict(), f'model/model_ckpt-epoch{epoch:02d}.pt')
+        torch.save(optimizer.state_dict(), f'model/optim_ckpt-epoch{epoch:02d}.pt')   
+        
+        monitor.update(metrics = {
+            'train': train_metrics,
+            'validation': valid_metrics,
+            'best_point': best_point_metrics
+        }) 
     return
 
 
 
 if __name__ == "__main__":
-    
     main()    
 
 
