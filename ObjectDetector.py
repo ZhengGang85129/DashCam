@@ -35,7 +35,6 @@ class ObjectDetector(nn.Module):
         for param in self.extractor.parameters():
             param.requires_grad = False
         
-        self.extractor.eval()
          
     def crop_by_box(self, img, box: List[int]):
         """
@@ -64,20 +63,23 @@ class ObjectDetector(nn.Module):
         images = self.transforms(x.permute(0, 2, 3, 1))    
         #print(img.shape)
         images = images.permute(0, 3, 1, 2)
-        detection_outputs = self.model(images)
+        self.model.eval()
+        with torch.no_grad():
+            detection_outputs = self.model(images)
         
         
         objects = []
         objects_mask = []
         objects_features = []
         fullframe_features = []
+        self.extractor.eval()
         for batch_index in range(batch_size):
             fullframe_features.append(self.extractor(images[batch_index]))
             object_holder = torch.zeros((self.max_num_objects, 4))
             
             output = detection_outputs[batch_index]
 
-            class_mask = torch.isin(output['labels'], torch.tensor(self.vehicle_label, dtype=torch.int64))
+            class_mask = torch.isin(output['labels'], torch.tensor(self.vehicle_label, dtype=torch.int64).to(x.device)).to(x.device)
             
             comb_mask = class_mask & (output['scores'] > self.score_threshold) 
             
@@ -95,7 +97,7 @@ class ObjectDetector(nn.Module):
             boxes = boxes[top_k_indices]
             object_holder[:n_objects] = boxes
             
-            obj_mask_holder = torch.ones((self.max_num_objects),  dtype = torch.bool) # Will mask the empty position which does not have object. 
+            obj_mask_holder = torch.ones((self.max_num_objects),  dtype = torch.bool).to(x.device) # Will mask the empty position which does not have object. 
             obj_mask_holder[n_objects:] = 0
             objects.append(object_holder)
             objects_mask.append(obj_mask_holder)
@@ -104,13 +106,14 @@ class ObjectDetector(nn.Module):
             
             for obj_idx in range(n_objects):
                 #print(images[batch_index, :, int(object_holder[obj_idx][1].item()):int(object_holder[obj_idx][3].item()), int(object_holder[obj_idx][0].item()):int(object_holder[obj_idx][2].item())].shape)
-                feature = self.extractor(images[batch_index, :, int(object_holder[obj_idx][1].item()):int(object_holder[obj_idx][3].item()), int(object_holder[obj_idx][0].item()):int(object_holder[obj_idx][2].item())])
-                feature_holder[obj_idx] = feature 
+                with torch.no_grad():
+                    feature = self.extractor(images[batch_index, :, int(object_holder[obj_idx][1].item()):int(object_holder[obj_idx][3].item()), int(object_holder[obj_idx][0].item()):int(object_holder[obj_idx][2].item())])
+                    feature_holder[obj_idx] = feature 
             objects_features.append(feature_holder) 
-        Objects = torch.stack(objects, dim = 0)
-        Object_features = torch.stack(objects_features, dim = 0)
-        Objects_mask = torch.stack(objects_mask, dim = 0) 
-        FullFrame_features = torch.stack(fullframe_features, dim = 0) 
+        Objects = torch.stack(objects, dim = 0).to(x.device)
+        Object_features = torch.stack(objects_features, dim = 0).to(x.device)
+        Objects_mask = torch.stack(objects_mask, dim = 0).to(x.device)
+        FullFrame_features = torch.stack(fullframe_features, dim = 0).to(x.device)
         return Objects, Object_features, Objects_mask, FullFrame_features 
 
      
