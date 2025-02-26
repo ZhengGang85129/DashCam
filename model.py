@@ -1,7 +1,8 @@
 import torch.nn as nn
 import torch
-from typing import Tuple
+from typing import Tuple, Union
 from ObjectDetector import ObjectDetector as object_detector
+
 __all__ = ["LSTM_cell", "DSA_RNN"]
 class LSTM_cell(nn.Module):
     def __init__(self, input_size:int, hidden_size:int, scale_input = True):
@@ -100,7 +101,7 @@ class LSTM_cell(nn.Module):
         return new_h, new_c
 
 class DSA_RNN(nn.Module):
-    def __init__(self, input_size:int = 4096, hidden_size:int = 256, num_layers: int = 1):
+    def __init__(self, input_size:int = 4096, hidden_size:int = 128, num_layers: int = 1):
         super(DSA_RNN, self).__init__()
         self.input_size = input_size
         assert self.input_size == 4096 # output dimension gauged by faster r-cnn
@@ -112,10 +113,14 @@ class DSA_RNN(nn.Module):
         )
         
         self.object_detector = object_detector(score_threshold = 0.8, max_num_objects = 20)
+        
+        for param in self.object_detector.parameters():
+            param.requires_grad = False
+        
         self.object_detector.eval()
         self.fc = nn.Linear(hidden_size, 1)
          
-    def forward(self, x: torch.Tensor, initial_state: Tuple[torch.Tensor, torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, initial_state: Union[Tuple[torch.Tensor, torch.Tensor], None] = None):
         """
         Forward pass of stacked LSTM
         
@@ -156,9 +161,9 @@ class DSA_RNN(nn.Module):
                     x_t, (h_states[layer], c_states[layer]) 
                 )
             out_sequence.append(torch.sigmoid(self.fc(h_states[-1])).squeeze(-1).squeeze(-1))
-        output = torch.stack(out_sequence, dim=1)
+        output = torch.stack(out_sequence, dim=1) # (batch_size, n_frames)
         # Stack final hidden and cell states
-        h_n = torch.stack(h_states, dim=0)
-        c_n = torch.stack(c_states, dim=0)
+        h_n = torch.stack(h_states, dim=0) # (batch_size, n_frames, hidden_size)
+        c_n = torch.stack(c_states, dim=0) # (batch_size, n_frames, hidden_size)
         
         return output, (h_n, c_n)
