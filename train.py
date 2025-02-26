@@ -13,7 +13,22 @@ import os
 from experiment.pseudo_Dataset import PseduoDataset
 import math
 import numpy as np
+import torch
+import random
+import torch.backends.cudnn as cudnn
 
+def set_seed(seed: int = 42) -> None:
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    # When running on the CuDNN backend, two further options must be set
+    cudnn.deterministic = True
+    cudnn.benchmark = False
+    # Set a fixed value for the hash seed
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    print(f"Random seed set as {seed}")
+    
 def print_trainable_parameters(model):
     """Print only the trainable parts of the model architecture"""
     logger.info("Trainable Architecture Components:")
@@ -42,7 +57,6 @@ def get_device()->torch.device:
     else:
         device = torch.device('cpu')
         print(f"Device: {device}")
-    print(torch.cuda.is_available())
     return device
 
 def get_logger() -> logging.Logger:
@@ -56,7 +70,11 @@ def get_logger() -> logging.Logger:
     return logger 
 
 def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
-    
+    '''
+    Return:
+        train_dataloader(torch.utils.data.DataLoader)
+        val_dataloader(torch.utils.data.DataLoader)
+    ''' 
     if DEBUG:
         dataset = PseduoDataset()
     else:
@@ -75,8 +93,8 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
     val_dataset = torch.utils.data.Subset(dataset, val_indices)
 
     # Create DataLoaders
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers = 4)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=4, shuffle=False, num_workers = 4) 
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle=True, num_workers = 4)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4) 
     
     return train_loader, val_loader
 
@@ -123,7 +141,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         remain_time = batch_time.avg_value * remain_iter 
         loss_meter.update(loss.item())
         
-        positive = torch.max(output, dim = 1).values > 0.5
+        positive = torch.max(output, dim = 1).values >= 0.5
         negative = torch.max(output, dim = 1).values < 0.5
         true_case = target == 1
         false_case = target == 0
@@ -131,27 +149,27 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         false_meter.update(false_case.sum().item() )
         TP_meter.update((positive & true_case).sum().item()) 
         FP_meter.update((positive & false_case).sum().item()) 
-        TN_meter.update((negative & true_case).sum().item()) 
-        FN_meter.update((negative & false_case).sum().item()) 
+        TN_meter.update((negative & false_case).sum().item()) 
+        FN_meter.update((negative & true_case).sum().item()) 
         
         t_m, t_s = divmod(remain_time, 60)
         t_h, t_m = divmod(t_m, 60)
         remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s)) 
-        if ((mini_batch_index + 1) % PRINT_FREQ) == 0:
+        if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(train_loader)):
             
             logger.info(f'Epoch: [{epoch + 1}/{EPOCHS}][{mini_batch_index + 1}/{dataset_per_epoch}] '
                         f'Data {data_time.current_value:.1f} s ({data_time.avg_value:.1f} s) '
                         f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
                         f'Remain(estimation) {remain_time} '
-                        f'Loss {(loss_meter.current_value):.2f} ({(loss_meter.avg_value):.2f}) '
-                        f'Acc {(true_meter.current_value)/(X.shape[0]):.2f} ({(true_meter.sum)/(true_meter.sum + false_meter.sum):.2f})'
+                        f'Loss {(loss_meter.current_value):.3f} ({(loss_meter.avg_value):.3f}) '
+                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum ):.3f})'
                         )
-        
-        
-    return {'mPrec': (TN_meter.sum + TP_meter.sum)/(TN_meter.sum + TP_meter.sum + FP_meter.sum + FN_meter.sum),
-            'mRecall': TP_meter.sum/(TP_meter.sum + TN_meter.sum),
+    
+    
+    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum ),
+            'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum),
             'mLoss': loss_meter.avg_value,
-            'mAcc': (true_meter.sum)/(true_meter.sum + false_meter.sum)
+            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum)
                 } 
 
 
@@ -183,9 +201,10 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
         X = X.to(device)
         target = target.to(device)
         if not DEBUG:
-            output = model(X) 
+            output, state = model(X)
         else:
             output = torch.randn(X.shape[0], 100).uniform_(0.45, 0.55)
+            output.requires_grad = True
         loss = criterion(output, target) 
 
         batch_time.update(time.time() - start)
@@ -203,48 +222,52 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
         false_meter.update(false_case.sum().item() )
         TP_meter.update((positive & true_case).sum().item()) 
         FP_meter.update((positive & false_case).sum().item()) 
-        TN_meter.update((negative & true_case).sum().item()) 
-        FN_meter.update((negative & false_case).sum().item()) 
-        
+        TN_meter.update((negative & false_case).sum().item()) 
+        FN_meter.update((negative & true_case).sum().item()) 
         t_m, t_s = divmod(remain_time, 60)
         t_h, t_m = divmod(t_m, 60)
         remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s)) 
-        if ((mini_batch_index + 1) % PRINT_FREQ) == 0:
+        if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(val_loader)):
             
             logger.info(f'Epoch: [{epoch + 1}/{EPOCHS}][{mini_batch_index + 1}/{dataset_per_epoch}] '
                         f'Data {data_time.current_value:.1f} s ({data_time.avg_value:.1f} s) '
                         f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
                         f'Remain(estimation) {remain_time} '
-                        f'Loss {(loss_meter.current_value):.2f} ({(loss_meter.avg_value):.2f}) '
-                        f'Acc {(true_meter.current_value)/(X.shape[0]):.2f} ({(true_meter.sum)/(true_meter.sum + false_meter.sum):.2f})'
+                        f'Loss {(loss_meter.current_value):.3f} ({(loss_meter.avg_value):.3f}) '
+                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum ):.3f})'
                         )
     
     
-    return {'mPrec': (TN_meter.sum + TP_meter.sum)/(TN_meter.sum + TP_meter.sum + FP_meter.sum + FN_meter.sum),
-            'mRecall': TP_meter.sum/(TP_meter.sum + TN_meter.sum),
+    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum ),
+            'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum),
             'mLoss': loss_meter.avg_value,
-            'mAcc': (true_meter.sum)/(true_meter.sum + false_meter.sum)
+            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum)
                 } 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE
+    BATCH_SIZE = 16
     PRINT_FREQ = 4
     EPOCHS= 10
+    LR_RATE = 0.01
     DEBUG = False
+    set_seed(123)
     logger = get_logger()
     device = get_device()
+    
     logger.info('Set-up model') 
     logger.info("=> creating model")
+    
     model =  DSA_RNN(hidden_size = 64)
     model.to(device)
+    
     np = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Total number of parameters in model: {np}")
-    #logger.info(model)
     print_trainable_parameters(model)
     Loss_fn = AnticipationLoss()
     optimizer = torch.optim.RAdam(model.parameters(), 
                                   betas=(0.95, 0.999), 
-                                  lr = 0.001)
+                                  lr = LR_RATE)
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}') 
     logger.info(f'Load dataset...') 
