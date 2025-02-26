@@ -13,7 +13,8 @@ pip3 install torchvision
 pip3 install opencv-python
 pip3 install av  
 pip3 install matplotlib 
-pip3 install torchsummary 
+pip3 install torchsummary
+pip3 install pyyaml
 ```
 
 ## Dataset Download and Offline-preprocessing
