@@ -32,6 +32,9 @@ class ObjectDetector(nn.Module):
         self.score_threshold = score_threshold
         self.max_num_objects = max_num_objects
         self.extractor = extractor()
+        for param in self.extractor.parameters():
+            param.requires_grad = False
+        
         self.extractor.eval()
          
     def crop_by_box(self, img, box: List[int]):
@@ -47,7 +50,7 @@ class ObjectDetector(nn.Module):
             plt.imshow(objects[i].permute(1, 2, 0).detach().cpu().numpy())
             plt.savefig(f'object-{i:02d}.png') 
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Provide the objects list in each frame using faster R-CNN
         Args: 
@@ -116,7 +119,7 @@ class ObjectDetector(nn.Module):
 
 
 if __name__ == '__main__':
-    from dataset import VideoDataset
+    from dataset import VideoDataset # type: ignore #
     import time
     #dogs_with_boxes = [
     #    draw_bounding_boxes(img, boxes = boxes[class_mask], width=4)
