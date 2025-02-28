@@ -299,7 +299,7 @@ def main():
     os.makedirs('model', exist_ok = True) # save model parameters under this folder
     os.makedirs('train', exist_ok = True)  # save training details under this folder
     
-    monitor = Monitor(save_path = 'train')
+    monitor = Monitor(save_path = 'train', tag = f'bs{BATCH_SIZE}_lr{LR_RATE}')
     best_point_metrics = {
         'mLoss': float('inf'),
         'mPrec': -float('inf'),
