@@ -299,7 +299,8 @@ def main():
     os.makedirs('model', exist_ok = True) # save model parameters under this folder
     os.makedirs('train', exist_ok = True)  # save training details under this folder
     
-    monitor = Monitor(save_path = 'train', tag = f'bs{BATCH_SIZE}_lr{LR_RATE}')
+    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}'
+    monitor = Monitor(save_path = '/eos/user/y/ykao/www/kaggle/20250228/', tag = tag)
     best_point_metrics = {
         'mLoss': float('inf'),
         'mPrec': -float('inf'),
@@ -316,13 +317,13 @@ def main():
         valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
         
         if prev_loss > valid_metrics['mLoss']:
-            torch.save(model.state_dict(), 'model/best_model_ckpt.pt')
-            torch.save(optimizer.state_dict(), 'model/best_optim_ckpt.pt')
+            torch.save(model.state_dict(), f'model/best_model_ckpt_{tag}.pt')
+            torch.save(optimizer.state_dict(), f'model/best_optim_ckpt_{tag}.pt')
             best_point_metrics.update(valid_metrics) 
             prev_loss = valid_metrics['mLoss']
              
-        torch.save(model.state_dict(), f'model/model_ckpt-epoch{epoch:02d}.pt')
-        torch.save(optimizer.state_dict(), f'model/optim_ckpt-epoch{epoch:02d}.pt')   
+        torch.save(model.state_dict(), f'model/model_ckpt-epoch{epoch:02d}_{tag}.pt')
+        torch.save(optimizer.state_dict(), f'model/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
         
         monitor.update(metrics = {
             'train': train_metrics,
