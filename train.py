@@ -17,6 +17,23 @@ import torch
 import random
 import torch.backends.cudnn as cudnn
 
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Training script with batch size argument')
+
+    parser.add_argument('--batch_size', type=int, default=16,
+                        help='batch size for training (default: 16)')
+    parser.add_argument('--learning_rate', type=float, default=0.01,
+                        help='learning rate (default: 0.01)')
+    parser.add_argument('--epochs', type=int, default=10,
+                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--checkpoint_dir', type=str, default='./checkpoints',
+                        help='directory to save checkpoints (default: ./checkpoints)')
+
+    args = parser.parse_args()
+    return args
+
 def set_seed(seed: int = 42) -> None:
     np.random.seed(seed)
     random.seed(seed)
@@ -246,10 +263,16 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 def main():
     global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS
-    BATCH_SIZE = 16
+
+    args = parse_args()
+    print(f"Training with batch size: {args.batch_size}")
+    print(f"Learning rate: {args.learning_rate}")
+    print(f"Number of epochs: {args.epochs}")
+
+    BATCH_SIZE = args.batch_size
     PRINT_FREQ = 4
-    EPOCHS= 10
-    LR_RATE = 0.01
+    EPOCHS= args.epochs
+    LR_RATE = args.learning_rate
     DEBUG = False
     EPS = 1e-8
     set_seed(123)
