@@ -48,14 +48,26 @@ class Monitor(object):
         }
     }
     
-    def __init__(self, save_path:str, resume = False) -> None:
-        
-        self.save_path = os.path.join(save_path, 'monitor')
+    def __init__(self, save_path:str, tag:str, resume = False) -> None:
+        self.save_path = os.path.join(save_path, f'monitor_{tag}')
         self.nmetric = len(self.metrics.items())
         self.resume = resume
         self.state = dict()
+
     def reset(self) -> None:
-        self.fig, self.ax = plt.subplots(1, self.nmetric, layout = "constrained") 
+        # Calculate figure dimensions to maintain 4:3 ratio for each subplot
+        width_inches = 10  # Total figure width - adjust as needed
+        subplot_width = width_inches / 2  # For 2 columns
+        subplot_height = subplot_width * 3/4  # Apply 4:3 ratio
+        total_height = subplot_height * ((self.nmetric + 1) // 2)  # Calculate height based on number of rows
+
+        self.fig, self.ax = plt.subplots(
+            (self.nmetric + 1) // 2, 2,
+            figsize=(width_inches, total_height),
+            layout="constrained",
+            gridspec_kw={'width_ratios': [1, 1]}
+        )
+        self.ax = self.ax.flatten()  # Flatten the 2D array to 1D for consistent indexing
 
     def __plot(self) -> None:
         self.reset() 
@@ -123,4 +135,4 @@ class Monitor(object):
             
         
         self.__record()
-        self.__plot()      
+        self.__plot()

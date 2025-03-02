@@ -17,6 +17,25 @@ import torch
 import random
 import torch.backends.cudnn as cudnn
 
+import argparse
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Training script with batch size argument')
+
+    parser.add_argument('--batch_size', type=int, default=16,
+                        help='batch size for training (default: 16)')
+    parser.add_argument('--learning_rate', type=float, default=0.01,
+                        help='learning rate (default: 0.01)')
+    parser.add_argument('--epochs', type=int, default=10,
+                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--model_dir', type=str, default='model',
+                        help='directory to save models (default: ./model)')
+    parser.add_argument('--monitor_dir', type=str, default='train',
+                        help='directory to save monitoring plots (default: ./train)')
+
+    args = parser.parse_args()
+    return args
+
 def set_seed(seed: int = 42) -> None:
     np.random.seed(seed)
     random.seed(seed)
@@ -246,10 +265,16 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 def main():
     global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS
-    BATCH_SIZE = 16
+
+    args = parse_args()
+    print(f"Training with batch size: {args.batch_size}")
+    print(f"Learning rate: {args.learning_rate}")
+    print(f"Number of epochs: {args.epochs}")
+
+    BATCH_SIZE = args.batch_size
     PRINT_FREQ = 4
-    EPOCHS= 10
-    LR_RATE = 0.01
+    EPOCHS= args.epochs
+    LR_RATE = args.learning_rate
     DEBUG = False
     EPS = 1e-8
     set_seed(123)
@@ -273,10 +298,11 @@ def main():
     logger.info(f'Total number of epochs: {EPOCHS}') 
     logger.info(f'Load dataset...') 
     train_dataloader, val_dataloader = get_dataloaders(val_ratio=0.2) 
-    os.makedirs('model', exist_ok = True) # save model parameters under this folder
-    os.makedirs('train', exist_ok = True)  # save training details under this folder
+    os.makedirs(args.model_dir, exist_ok = True) # save model parameters under this folder
+    os.makedirs(args.monitor_dir, exist_ok = True) # save training details under this folder
     
-    monitor = Monitor(save_path = 'train')
+    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}'
+    monitor = Monitor(save_path = args.monitor_dir, tag = tag)
     best_point_metrics = {
         'mLoss': float('inf'),
         'mPrec': -float('inf'),
@@ -293,13 +319,13 @@ def main():
         valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
         
         if prev_loss > valid_metrics['mLoss']:
-            torch.save(model.state_dict(), 'model/best_model_ckpt.pt')
-            torch.save(optimizer.state_dict(), 'model/best_optim_ckpt.pt')
+            torch.save(model.state_dict(), f'{args.model_dir}/best_model_ckpt_{tag}.pt')
+            torch.save(optimizer.state_dict(), f'{args.model_dir}/best_optim_ckpt_{tag}.pt')
             best_point_metrics.update(valid_metrics) 
             prev_loss = valid_metrics['mLoss']
              
-        torch.save(model.state_dict(), f'model/model_ckpt-epoch{epoch:02d}.pt')
-        torch.save(optimizer.state_dict(), f'model/optim_ckpt-epoch{epoch:02d}.pt')   
+        torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
+        torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
         
         monitor.update(metrics = {
             'train': train_metrics,
