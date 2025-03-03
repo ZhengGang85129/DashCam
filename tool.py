@@ -5,7 +5,31 @@ import yaml
 import matplotlib.pyplot as plt
 from typing import Dict, Union
 from collections import defaultdict
+import random
+import torch.backends.cudnn as cudnn
+import torch
 
+def get_device()->torch.device:
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+        print("CUDA is available. Using GPU.") 
+    else:
+        device = torch.device('cpu')
+        print(f"Device: {device}")
+    return device
+
+def set_seed(seed: int = 42) -> None:
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    # When running on the CuDNN backend, two further options must be set
+    cudnn.deterministic = True
+    cudnn.benchmark = False
+    # Set a fixed value for the hash seed
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    print(f"Random seed set as {seed}")
+    
 class AverageMeter(object):
     """computes and stores the average and the current value"""
     def __init__(self):
