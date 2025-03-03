@@ -41,6 +41,11 @@ Simple command-line example:
 python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} --monitor_dir ${monitor_dir} 
 ```
 
+## Evaluation (To-Be-Done)
+```
+python3 accident_risk_score.py --tag <TAG> --model_ckpt <path to model checkpoint> --video_id <VIDEOID> --csv_file <path to csv file> --output_dir eval
+```
+
 ## Download DAD dataset
 ```
 pip3 install gdown;
