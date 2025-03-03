@@ -1,9 +1,10 @@
 import torch.nn as nn 
 import torch
 class AnticipationLoss(nn.Module):
-    def __init__(self, decay_nframe = 50, pivot_frame_index = 90):
+    def __init__(self, decay_nframe:float = 20, pivot_frame_index:float = 90, f2: float = 150):
         super(AnticipationLoss, self).__init__()
         self.decay_nframe = decay_nframe
+        self.f2 = f2 
         self.pivot_frame_index = pivot_frame_index 
     def forward(self, prob: torch.Tensor, targets: torch.Tensor)->torch.Tensor:
         """
@@ -15,7 +16,7 @@ class AnticipationLoss(nn.Module):
         """
         y = targets.unsqueeze(1)
         t_step = torch.arange(start = 0, end = prob.shape[1]).unsqueeze(0).to(prob.device) 
-        loss = - y * torch.exp(- torch.relu(self.pivot_frame_index - t_step)/self.decay_nframe) * torch.log(prob) - (1 - y) * torch.log(1. - prob) 
+        loss = - y * torch.exp(- torch.relu(self.pivot_frame_index - t_step)/self.decay_nframe) * torch.log(prob) - (1 - y) * torch.log(1. - prob)/self.f2 
         loss = loss.mean().to(prob.device) 
         return loss 
 
