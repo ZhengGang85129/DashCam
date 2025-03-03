@@ -10,6 +10,25 @@ from pathlib import Path
 import numpy as np
 import time
 import pandas as pd
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='TTA inference')
+
+    parser.add_argument('--tag', type=str, default = '',
+                        help='learning rate (default: 0.01)')
+    parser.add_argument('--epochs', type=int, default=10,
+                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--model_dir', type=str, default='model',
+                        help='directory to save models (default: ./model)')
+    parser.add_argument('--monitor_dir', type=str, default='train',
+                        help='directory to save monitoring plots (default: ./train)')
+
+    args = parser.parse_args()
+    return args
+
+
 
 class AccidentPredictor:
     def __init__(self, state_path: str, device: Union[torch.device, None] = None):
@@ -95,8 +114,23 @@ class AccidentPredictor:
             frames = self.__load_video(video_path)
             frames = frames.to(self.device)
             frames = frames.unsqueeze(0)
-            scores_over_frames, _ = self.model(frames)
-            scores_over_frames = scores_over_frames.squeeze(0)
+            
+            #frames = frames.view(-1, 100, -1, -1, -1)
+            n_frames = frames.shape[1]
+            #n_chunks = n_frames // 100 
+            scores_over_frames = []
+            
+            stride = 100
+            n_patches = n_frames//stride  
+             
+            for chunk in range(n_patches):
+                scores, _ = self.model(frames[:,stride*chunk:stride*(chunk + 1),:,:,:])
+                scores_over_frames.append(scores.squeeze(0))
+                #print(scores.shape)
+                #if chunk == 3: break
+            #print(scores_over_frames)
+            scores_over_frames = torch.cat(scores_over_frames)
+            #scores_over_frames = scores_over_frames.squeeze(0)
         if self.has_accident:
             self.accident_time = dataframe['time_of_event'][dataframe["id"] == index].item()
             print(f'Accident time: at {dataframe["time_of_event"][dataframe["id"] == index].item():.2f} sec ({int(self.accident_time * self.fps)})')
@@ -104,7 +138,7 @@ class AccidentPredictor:
         print(f'Inference time: {time.time() - start:.2f} sec')
         self.__plot_tta(output_dir = 'eval', scores_over_frames=scores_over_frames)
         
-        return scores_over_frames
+        return scores_over_frames # type: ignore
     
     def __load_video(self, video_path: str, resize_shape: Tuple[int, int] = (224, 224)) -> torch.Tensor:
         
@@ -132,8 +166,8 @@ class AccidentPredictor:
         
 
 def main():
-   predictor = AccidentPredictor(state_path = 'model/best_model_ckpt.pt', device = get_device())
-   output_score = predictor.predict_on(index = 1388, test_sample = False, )
+   predictor = AccidentPredictor(state_path = 'model_lossfn_ndecay20/best_model_ckpt_bs32_lr0.0001.pt', device = get_device())
+   output_score = predictor.predict_on(index = 86, test_sample = False, csv_file = 'dataset/train.csv')
     
 
 if __name__ == '__main__':
