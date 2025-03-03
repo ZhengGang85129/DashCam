@@ -133,7 +133,7 @@ class AccidentPredictor:
 
 def main():
    predictor = AccidentPredictor(state_path = 'model/best_model_ckpt.pt', device = get_device())
-   output_score = predictor.predict_on(index = 2105, test_sample = False, )
+   output_score = predictor.predict_on(index = 1388, test_sample = False, )
     
 
 if __name__ == '__main__':

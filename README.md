@@ -32,3 +32,9 @@ python3 ./traindataset_frames_extraction.py
 ```
 python3 ./train.py
 ```
+
+## Download DAD dataset
+```
+pip3 install gdown;
+gdown 1Z_vUmhGe4lES0ASUcROK58q7fjFTU_Y3;
+```
