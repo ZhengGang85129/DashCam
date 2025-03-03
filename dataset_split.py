@@ -16,9 +16,9 @@ def split(ratio: float = 0.1):
     print(f"Evaluation set: {len(eval_df)} records ({len(eval_df)/len(df):.1%})")
 
     # Save to separate CSV files
-    train_df.to_csv('train_videos.csv', index=False)
-    val_df.to_csv('validation_videos.csv', index=False)
-    eval_df.to_csv('evaluation_videos.csv', index=False)
+    train_df.to_csv('dataset/train_videos.csv', index=False)
+    val_df.to_csv('dataset/validation_videos.csv', index=False)
+    eval_df.to_csv('dataset/evaluation_videos.csv', index=False)
      
 
 def main():
