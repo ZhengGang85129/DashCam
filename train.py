@@ -308,6 +308,7 @@ def main():
             torch.save(model.state_dict(), f'{args.model_dir}/best_model_ckpt_{tag}.pt')
             torch.save(optimizer.state_dict(), f'{args.model_dir}/best_optim_ckpt_{tag}.pt')
             best_point_metrics.update(valid_metrics) 
+            best_point_metrics['current_epoch'] = epoch 
             prev_loss = valid_metrics['mLoss']
              
         torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
