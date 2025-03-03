@@ -17,7 +17,7 @@ pip3 install torchsummary
 pip3 install pyyaml
 ```
 
-## Dataset Download and Offline-preprocessing
+## Dataset Download and Offline-preprocessing(must)
 ```
 kaggle competitions download -c nexar-collision-prediction
 ```
@@ -27,10 +27,18 @@ kaggle competitions download -c nexar-collision-prediction
 ```
 python3 ./traindataset_frames_extraction.py
 ```
+## Dataset splitting(must)
+Use following step to split the dataset(train) into train and validation. To keep consistency over our team, do not modify anything in the script.
+```
+pip3 install scikit-learn
+python3 ./dataset_split.py
+``` 
+
 
 ## Training (To-Be-Done)
+Simple command-line example:
 ```
-python3 ./train.py
+python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} --monitor_dir ${monitor_dir} 
 ```
 
 ## Download DAD dataset
