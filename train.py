@@ -65,6 +65,11 @@ def get_logger() -> logging.Logger:
     fmt = "[%(asctime)s %(levelname)s %(filename)s line %(lineno)d %(process)d %(message)s]"
     handler.setFormatter(logging.Formatter(fmt))
     logger.addHandler(handler)
+    logging.basicConfig(
+        filename = f'training-lr{LR_RATE}.log',
+        level=logging.INFO,
+    )
+    
     return logger 
 
 def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
@@ -122,13 +127,13 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X, target = data
         X = X.to(device)
         target = target.to(device)
+        optimizer.zero_grad() 
         if not DEBUG:
             output, state = model(X)
         else:
             output = torch.randn(X.shape[0], 100).uniform_(0.45, 0.55)
             output.requires_grad = True
         loss = criterion(output, target) 
-        optimizer.zero_grad() 
         loss.backward() 
         optimizer.step()
 
@@ -257,7 +262,7 @@ def main():
     LR_RATE = args.learning_rate
     DEBUG = False
     EPS = 1e-8
-    DECAY_NFRAME = 10
+    DECAY_NFRAME = 20
     set_seed(123)
     logger = get_logger()
     device = get_device()
