@@ -7,14 +7,15 @@ from typing import Tuple, Dict, Union
 
 from utils.loss import AnticipationLoss
 import torch.nn as nn
-from tool import AverageMeter, Monitor
+from utils.tool import AverageMeter, Monitor
+from utils.misc import print_trainable_parameters
 import time
 import os
 from experiment.pseudo_Dataset import PseduoDataset
 import math
 import numpy as np
 import torch
-from tool import get_device, set_seed
+from utils.tool import get_device, set_seed
 import argparse
 from torchvision import transforms
 import torch.nn.functional as F
@@ -22,48 +23,26 @@ from datetime import datetime
 from models.model import DSA_RNN
 from models.model import baseline_model
 #r3d_18
+from utils.misc import parse_args
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Training script with batch size argument')
-
-    parser.add_argument('--batch_size', type=int, default=16,
-                        help='batch size for training (default: 16)')
-    parser.add_argument('--learning_rate', type=float, default=0.01,
-                        help='learning rate (default: 0.01)')
-    parser.add_argument('--epochs', type=int, default=10,
-                        help='number of epochs to train (default: 10)')
-    parser.add_argument('--model_dir', type=str, default='model',
-                        help='directory to save models (default: ./model)')
-    parser.add_argument('--monitor_dir', type=str, default='train',
+def train_parse_args() -> argparse.ArgumentParser:
+    parser = parse_args(parser_name = 'Training') 
+    parser.add_argument('--monitor_dir', 
+                        type=str, default='train',
                         help='directory to save monitoring plots (default: ./train)')
-    parser.add_argument('--debug', action = "store_true", help = 'Activate to turn on the debug mode')
-
-    args = parser.parse_args()
-    return args
-
-    
-def print_trainable_parameters(model) -> None:
-    """Print only the trainable parts of the model architecture"""
-    logger.info("Trainable Architecture Components:")
-    
-    for name, module in model.named_children():
-        # Check if any parameters in this module are trainable
-        has_trainable = any(p.requires_grad for p in module.parameters())
-        
-        if has_trainable:
-            logger.info(f"\n{name}:")
-            # Check if it's a container module (like Sequential)
-            if isinstance(module, nn.Sequential) or len(list(module.children())) > 0:
-                # Print each trainable submodule
-                for sub_name, sub_module in module.named_children():
-                    sub_trainable = any(p.requires_grad for p in sub_module.parameters())
-                    if sub_trainable:
-                        logger.info(f"  {sub_name}: {sub_module}")
-            else:
-                # Print the module directly
-                print(f"  {module}")
-
+    parser.add_argument('--learning_rate', 
+                        type=float, 
+                        default=0.01,
+                        help='learning rate (default: 0.01)')
+    parser.add_argument('--epochs', 
+                        type=int, default=10,
+                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--batch_size', 
+                        type=int, 
+                        default=16,
+                        help='batch size for training (default: 16)')
+    return parser
 
 def get_logger() -> logging.Logger:
     logger_name = "Dashcam-Logger"
@@ -271,7 +250,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 def main():
     global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS
 
-    args = parse_args()
+    args = train_parse_args(parser_name = 'Training')
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")
@@ -297,6 +276,7 @@ def main():
     
     np = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Total number of parameters in model: {np}")
+    logger.info("Trainable Architecture Components:")
     print_trainable_parameters(model)
     Loss_fn = nn.CrossEntropyLoss()
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
