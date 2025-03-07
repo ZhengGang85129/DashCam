@@ -31,9 +31,9 @@ def _parse_args():
     parser.add_argument('--output_dir', type = str, help = 'Folder which storing the output plot.', default = 'eval') 
     parser.add_argument('--full_video', help = 'infer on full video or clips', action = 'store_true') 
     
-    args = parser.parse_args()
+    _args = parser.parse_args()
     #parser.print_help()
-    return args
+    return _args
 
 
 
