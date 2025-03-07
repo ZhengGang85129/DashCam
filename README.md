@@ -25,13 +25,13 @@ kaggle competitions download -c nexar-collision-prediction
 
 * After downloading the data and unfolding the zip file, please rename the folder as "dataset". Then, run "./traindataset_frames_extraction.py" to do the data preprocessing.
 ```
-python3 ./traindataset_frames_extraction.py
+python3 ./utils/traindataset_frames_extraction.py
 ```
 ## Dataset splitting(must)
 Use following step to split the dataset(train) into train and validation. To keep consistency over our team, do not modify anything in the script.
 ```
 pip3 install scikit-learn
-python3 ./dataset_split.py
+python3 ./utils/dataset_split.py
 ``` 
 
 
