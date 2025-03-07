@@ -280,8 +280,8 @@ def main():
     PRINT_FREQ = 4
     EPOCHS= args.epochs
     LR_RATE = args.learning_rate
-    DEBUG = args.debug
-    EPS = 1e-8
+    DEBUG = args.debug # debug mode if --debug is added
+    EPS = 1e-8 # small number to avoid zero-division
     #DECAY_NFRAME = 20
     set_seed(123)
     logger = get_logger()
