@@ -5,12 +5,12 @@ import argparse
 def parse_args(parser_name: str = 'DEFAULT')-> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=f'{parser_name} script with batch size argument')
 
-    parser.add_argument('--model_dir', type=str, default='model',
-                        help='directory to save models (default: ./model)')
+    parser.add_argument('--model_dir', type=str, default='model_ckpt',
+                        help='directory to save models (default: ./model_ckpt)')
     parser.add_argument('--debug', action = "store_true", help = 'Activate to turn on the debug mode')
 
-    args = parser.parse_args()
-    return args
+    #args = parser.parse_args()
+    return parser
 
 def print_trainable_parameters(model: nn.Module, logger:logging.Logger) -> None:
     """Print only the trainable parts of the model architecture"""
