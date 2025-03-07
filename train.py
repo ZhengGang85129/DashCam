@@ -5,7 +5,7 @@ from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
 import logging
 from typing import Tuple, Dict, Union
 
-from loss import AnticipationLoss
+from utils.loss import AnticipationLoss
 import torch.nn as nn
 from tool import AverageMeter, Monitor
 import time
@@ -103,7 +103,7 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
         return train_loader, None
     
     
-    val_dataset = VideoDataset(
+    val_dataset = VideoTo3DImageDataset(
         root_dir="./dataset/train",
         csv_file = './dataset/validation_videos.csv',
     )
