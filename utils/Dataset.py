@@ -119,7 +119,12 @@ class VideoTo3DImageDataset(Dataset):
         self.video_files = dict()
         global_index = 0
         self.num_frames = num_frames 
-        
+        self.transforms = transforms.Compose([
+            transforms.ToTensor(),  # Convert (H, W, C) to (C, H, W)
+            transforms.Resize((112, 112)), #Resize the 720 x 1280 -> 112 x 112
+            transforms.Normalize(mean=[0.43216, 0.394666, 0.37645], std=[0.22803, 0.22145, 0.216989])
+        ])
+         
         for Index in self.video_indices:
             file = os.path.join(root_dir, f'{Index:05d}.mp4')
             if os.path.isfile(file):
@@ -157,10 +162,7 @@ class VideoTo3DImageDataset(Dataset):
             if not success:
                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # Resize frame
-            #frame = cv2.resize(frame, (560, 560))
-            # Apply transforms
-            frames.append(torch.from_numpy(frame.astype(np.float32)) / 255.0)
+            frames.append( self.transforms(frame.astype(np.float32) / 255.0))
             frames_saved += 1
             if frames_saved >= self.num_frames:
                 break
@@ -181,8 +183,8 @@ class VideoTo3DImageDataset(Dataset):
         video_path,  target = self.video_files[idx]
         frames = self.__load_video(video_path)
         # Stack frames into a single tensor
-        clip = torch.stack(frames)
-        return clip.permute(0, 3, 1, 2), target
+        
+        return torch.stack(frames, dim=1) , target
 # Example usage:
 if __name__ == "__main__":
     # Create dataset
