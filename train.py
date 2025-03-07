@@ -29,7 +29,7 @@ from utils.misc import parse_args
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training') 
     parser.add_argument('--monitor_dir', 
-                        type=str, default='train',
+                        type=str, default='monitor_train',
                         help='directory to save monitoring plots (default: ./train)')
     parser.add_argument('--learning_rate', 
                         type=float, 
@@ -42,7 +42,9 @@ def train_parse_args() -> argparse.ArgumentParser:
                         type=int, 
                         default=16,
                         help='batch size for training (default: 16)')
-    return parser
+    
+    _args = parser.parse_args()
+    return _args 
 
 def get_logger() -> logging.Logger:
     logger_name = "Dashcam-Logger"
