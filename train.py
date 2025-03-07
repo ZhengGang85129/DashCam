@@ -247,7 +247,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             TN_meter.update(torch.logical_and(negative, false_case).sum().item()) 
             FN_meter.update(torch.logical_and(negative, true_case).sum().item()) 
             
-            if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(train_loader)):
+            if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(val_loader)):
                 logger.info(f'Epoch: [{epoch + 1:03d}/{EPOCHS:03d}][{mini_batch_index + 1:03d}/{dataset_per_epoch}] '
                             f'Data {data_time.current_value:.1f} s ({data_time.avg_value:.1f} s) '
                             f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
