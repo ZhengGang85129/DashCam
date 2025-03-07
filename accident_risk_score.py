@@ -12,7 +12,7 @@ import time
 import pandas as pd
 import argparse
 from datetime import datetime
-
+import torch.nn.functional as F
 '''
 usage: python3 accident_risk_score.py --tag <TAG> --model_ckpt <path to model checkpoint> --video_id <VIDEOID> --csv_file <path to csv file> --output_dir eval
 '''
@@ -46,7 +46,7 @@ class AccidentPredictor:
         self.model.eval()
 
     def load_model(self, state_path) -> Union[nn.Module, DSA_RNN]: 
-        model = DSA_RNN(hidden_size = 64) # FIX ME
+        model = DSA_RNN(hidden_size = 512) #32 FIX ME
         if not os.path.isfile(state_path):
             raise FileNotFoundError(f"The file {state_path} does not exits,") 
         
@@ -132,11 +132,13 @@ class AccidentPredictor:
             scores_over_frames = []
             
             stride = 100
-            n_patches = n_frames//stride # FIX ME 
-             
-            for chunk in range(n_patches):
-                scores, _ = self.model(frames[:,stride*chunk:stride*(chunk + 1),:,:,:])
-                scores_over_frames.append(scores.squeeze(0))
+            n_windows = n_frames//stride # FIX ME 
+            print(n_frames, n_windows) 
+            for chunk in range(n_windows):
+                last_t_step = (chunk + 1) * stride
+                last_t_step = last_t_step if last_t_step < n_frames else n_frames - 1 
+                scores, _ = self.model(frames)
+                scores_over_frames.append(F.softmax(scores.squeeze(0), dim = 1)[:, 1])
                 #print(scores.shape)
                 #if chunk == 3: break
             #print(scores_over_frames)
@@ -164,9 +166,8 @@ class AccidentPredictor:
             # Convert BGR to RGB
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # Resize frame
-            frame = cv2.resize(frame, resize_shape)
             # Apply transforms
-            frames.append(torch.from_numpy(frame))
+            frames.append(torch.from_numpy(frame.astype(np.float32)) / 255.0)
                 
             frame_count += 1
         self.fps = cap.get(cv2.CAP_PROP_FPS)
