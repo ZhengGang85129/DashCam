@@ -1,11 +1,11 @@
 import torch
 import torch.optim.optimizer
 import torch.utils.data.dataloader
-from Dataset import VideoDataset # type: ignore
+from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
 import logging
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Union
+
 from loss import AnticipationLoss
-from model import DSA_RNN
 import torch.nn as nn
 from tool import AverageMeter, Monitor
 import time
@@ -16,6 +16,13 @@ import numpy as np
 import torch
 from tool import get_device, set_seed
 import argparse
+from torchvision import transforms
+import torch.nn.functional as F
+from datetime import datetime
+from models.model import DSA_RNN
+from models.model import baseline_model
+#r3d_18
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Training script with batch size argument')
@@ -30,6 +37,7 @@ def parse_args():
                         help='directory to save models (default: ./model)')
     parser.add_argument('--monitor_dir', type=str, default='train',
                         help='directory to save monitoring plots (default: ./train)')
+    parser.add_argument('--debug', action = "store_true", help = 'Activate to turn on the debug mode')
 
     args = parser.parse_args()
     return args
@@ -65,40 +73,42 @@ def get_logger() -> logging.Logger:
     fmt = "[%(asctime)s %(levelname)s %(filename)s line %(lineno)d %(process)d %(message)s]"
     handler.setFormatter(logging.Formatter(fmt))
     logger.addHandler(handler)
+    current_time = datetime.now()
+    formatted_time = current_time.strftime("%m%d%H%M")
     logging.basicConfig(
-        filename = f'training-lr{LR_RATE}.log',
+        filename = f'training-lr{LR_RATE}-bs{BATCH_SIZE}-{formatted_time}.log',
         level=logging.INFO,
     )
     
     return logger 
 
-def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader, Union[torch.utils.data.DataLoader, None]]:
     '''
     Return:
         train_dataloader(torch.utils.data.DataLoader)
         val_dataloader(torch.utils.data.DataLoader)
     ''' 
+    train_dataset = VideoTo3DImageDataset(
+        root_dir="./dataset/train/",
+        csv_file = './dataset/train_videos.csv',
+    )
     if DEBUG:
-        dataset = PseduoDataset()
-    else:
-        dataset = VideoDataset(
-            root_dir="./dataset/train/extracted",
-            resize_shape=(224, 224)  # Resize frames to 224x224
-        )
+        max_size = 64
+        indices = list(range(len(train_dataset)))
+        indices = indices[:max_size]
+        train_dataset = torch.utils.data.Subset(train_dataset, indices)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle = True, num_workers = 4, pin_memory = True)
     
-    dataset_size = len(dataset)
-    indices = list(range(dataset_size))
-    np.random.shuffle(indices)
-
-    split = int(np.floor(val_ratio * dataset_size))
-    train_indices, val_indices = indices[split:], indices[:split]
-    train_dataset = torch.utils.data.Subset(dataset, train_indices)
-    val_dataset = torch.utils.data.Subset(dataset, val_indices)
-
-    # Create DataLoaders
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle=True, num_workers = 4)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4) 
+    if DEBUG:
+        return train_loader, None
     
+    
+    val_dataset = VideoDataset(
+        root_dir="./dataset/train",
+        csv_file = './dataset/validation_videos.csv',
+    )
+    
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4, pin_memory = True) 
     return train_loader, val_loader
 
 def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int, optimizer: torch.optim.Optimizer) -> Dict[str, float]:
@@ -128,45 +138,49 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X = X.to(device)
         target = target.to(device)
         optimizer.zero_grad() 
-        if not DEBUG:
-            output, state = model(X)
-        else:
-            output = torch.randn(X.shape[0], 100).uniform_(0.45, 0.55)
-            output.requires_grad = True
+        output = model(X)
         loss = criterion(output, target) 
         loss.backward() 
         optimizer.step()
-
+        
+        # Positive and Negative cases counting
+        positive_probs = F.softmax(output, dim=-1)[:, 1] 
+        positive = (positive_probs >= 0.5)
+        positive.requires_grad = False
+        negative =  ~positive
+        true_case = target == 1
+        false_case = ~true_case 
+        
+        # Time measurement 
         batch_time.update(time.time() - start)
-        start = time.time()
         current_iter = epoch * dataset_per_epoch + mini_batch_index + 1 
         remain_iter = max_iter - current_iter
         remain_time = batch_time.avg_value * remain_iter 
-        loss_meter.update(loss.item())
-        
-        positive = torch.max(output, dim = 1).values >= 0.5
-        negative = torch.max(output, dim = 1).values < 0.5
-        true_case = target == 1
-        false_case = target == 0
-        true_meter.update(true_case.sum().item())
-        false_meter.update(false_case.sum().item() )
-        TP_meter.update((positive & true_case).sum().item()) 
-        FP_meter.update((positive & false_case).sum().item()) 
-        TN_meter.update((negative & false_case).sum().item()) 
-        FN_meter.update((negative & true_case).sum().item()) 
-        
         t_m, t_s = divmod(remain_time, 60)
         t_h, t_m = divmod(t_m, 60)
         remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s)) 
+        
+        #Metric calculation
+        loss_meter.update(loss.item())
+        true_meter.update(true_case.sum().item())
+        false_meter.update(false_case.sum().item() )
+        TP_meter.update(torch.logical_and(positive, true_case).sum().item()) 
+        FP_meter.update(torch.logical_and(positive, false_case).sum().item()) 
+        TN_meter.update(torch.logical_and(negative, false_case).sum().item()) 
+        FN_meter.update(torch.logical_and(negative, true_case).sum().item()) 
+        
         if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(train_loader)):
-            
-            logger.info(f'Epoch: [{epoch + 1:03d}/{EPOCHS}][{mini_batch_index + 1:03d}/{dataset_per_epoch}] '
+            logger.info(f'Epoch: [{epoch + 1:03d}/{EPOCHS:03d}][{mini_batch_index + 1:03d}/{dataset_per_epoch}] '
                         f'Data {data_time.current_value:.1f} s ({data_time.avg_value:.1f} s) '
                         f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
-                        f'Remain(estimation) {remain_time} '
+                        f'Remain {remain_time} '
                         f'Loss {(loss_meter.current_value):.3f} ({(loss_meter.avg_value):.3f}) '
-                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum +EPS ):.3f})'
+                        f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum +EPS ):.3f}) '
+                        f'Spec {(TN_meter.current_value)/(TN_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TN_meter.sum)/(TN_meter.sum + FP_meter.sum + EPS):.3f}) '
+                        f'RCall {TP_meter.current_value/(TP_meter.current_value + FN_meter.current_value + EPS):.3f} ({TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS):.3f}) '
+                        f'Acc {(TP_meter.current_value + TN_meter.current_value)/(true_meter.current_value + false_meter.current_value) + EPS:.3f} ({(TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS):.3f})'
                         )
+        start = time.time()
     
     
     return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum  + EPS),
@@ -204,49 +218,55 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device)
             target = target.to(device)
-            if not DEBUG:
-                output, state = model(X)
-            else:
-                output = torch.randn(X.shape[0], 100).uniform_(0.45, 0.55)
-                output.requires_grad = True
+            output = model(X)
             loss = criterion(output, target) 
 
+            # Positive and Negative cases counting
+            positive_probs = F.softmax(output, dim=-1)[:, 1] 
+            positive = (positive_probs >= 0.5)
+            positive.requires_grad = False
+            negative =  ~positive
+            true_case = target == 1
+            false_case = ~true_case 
+            
+            # Time measurement 
             batch_time.update(time.time() - start)
-            start = time.time()
             current_iter = epoch * dataset_per_epoch + mini_batch_index + 1 
             remain_iter = max_iter - current_iter
             remain_time = batch_time.avg_value * remain_iter 
-            loss_meter.update(loss.item())
-            
-            positive = torch.max(output, dim = 1).values > 0.5
-            negative = torch.max(output, dim = 1).values < 0.5
-            true_case = target == 1
-            false_case = target == 0
-            true_meter.update(true_case.sum().item())
-            false_meter.update(false_case.sum().item() )
-            TP_meter.update((positive & true_case).sum().item()) 
-            FP_meter.update((positive & false_case).sum().item()) 
-            TN_meter.update((negative & false_case).sum().item()) 
-            FN_meter.update((negative & true_case).sum().item()) 
             t_m, t_s = divmod(remain_time, 60)
             t_h, t_m = divmod(t_m, 60)
             remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s)) 
-            if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(val_loader)):
-                
-                logger.info(f'Epoch: [{epoch + 1:03d}/{EPOCHS}][{mini_batch_index + 1:03d}/{dataset_per_epoch}] '
+            
+            #Metric calculation
+            loss_meter.update(loss.item())
+            true_meter.update(true_case.sum().item())
+            false_meter.update(false_case.sum().item() )
+            TP_meter.update(torch.logical_and(positive, true_case).sum().item()) 
+            FP_meter.update(torch.logical_and(positive, false_case).sum().item()) 
+            TN_meter.update(torch.logical_and(negative, false_case).sum().item()) 
+            FN_meter.update(torch.logical_and(negative, true_case).sum().item()) 
+            
+            if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(train_loader)):
+                logger.info(f'Epoch: [{epoch + 1:03d}/{EPOCHS:03d}][{mini_batch_index + 1:03d}/{dataset_per_epoch}] '
                             f'Data {data_time.current_value:.1f} s ({data_time.avg_value:.1f} s) '
                             f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
-                            f'Remain(estimation) {remain_time} '
+                            f'Remain {remain_time} '
                             f'Loss {(loss_meter.current_value):.3f} ({(loss_meter.avg_value):.3f}) '
-                            f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum + EPS):.3f})'
+                            f'Prec {(TP_meter.current_value)/(TP_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TP_meter.sum)/(TP_meter.sum + FP_meter.sum +EPS ):.3f}) '
+                            f'Spec {(TN_meter.current_value)/(TN_meter.current_value + FP_meter.current_value + EPS):.3f} ({(TN_meter.sum)/(TN_meter.sum + FP_meter.sum + EPS):.3f}) '
+                            f'RCall {TP_meter.current_value/(TP_meter.current_value + FN_meter.current_value + EPS):.3f} ({TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS):.3f}) '
+                            f'Acc {(TP_meter.current_value + TN_meter.current_value)/(true_meter.current_value + false_meter.current_value) + EPS:.3f} ({(TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS):.3f})'
                             )
+            start = time.time()
         
     
-    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum + EPS),
+    return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum  + EPS),
             'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS),
             'mLoss': loss_meter.avg_value,
             'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS)
                 } 
+            
 
 def main():
     global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS
@@ -260,9 +280,9 @@ def main():
     PRINT_FREQ = 4
     EPOCHS= args.epochs
     LR_RATE = args.learning_rate
-    DEBUG = False
+    DEBUG = args.debug
     EPS = 1e-8
-    DECAY_NFRAME = 20
+    #DECAY_NFRAME = 20
     set_seed(123)
     logger = get_logger()
     device = get_device()
@@ -270,20 +290,23 @@ def main():
     logger.info('Set-up model') 
     logger.info("=> creating model")
     
-    model =  DSA_RNN(hidden_size = 64)
+    
+    model = baseline_model()
+     
     model.to(device)
     
     np = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Total number of parameters in model: {np}")
     print_trainable_parameters(model)
-    Loss_fn = AnticipationLoss(decay_nframe = DECAY_NFRAME)
-    optimizer = torch.optim.RAdam(model.parameters(), 
-                                  betas=(0.95, 0.999), 
-                                  lr = LR_RATE)
+    Loss_fn = nn.CrossEntropyLoss()
+    #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
+    
+    optimizer = torch.optim.RAdam([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}') 
     logger.info(f'Load dataset...') 
     train_dataloader, val_dataloader = get_dataloaders(val_ratio=0.2) 
+    
     os.makedirs(args.model_dir, exist_ok = True) # save model parameters under this folder
     os.makedirs(args.monitor_dir, exist_ok = True) # save training details under this folder
     
@@ -302,23 +325,25 @@ def main():
     for epoch in range(EPOCHS):
         logger.info('Training...')
         train_metrics = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
-        valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
-        
-        if prev_loss > valid_metrics['mLoss']:
-            torch.save(model.state_dict(), f'{args.model_dir}/best_model_ckpt_{tag}.pt')
-            torch.save(optimizer.state_dict(), f'{args.model_dir}/best_optim_ckpt_{tag}.pt')
-            best_point_metrics.update(valid_metrics) 
-            best_point_metrics['current_epoch'] = epoch 
-            prev_loss = valid_metrics['mLoss']
+        logger.info('Evaluating...')
+        if not DEBUG:
+            valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
+            
+            if prev_loss > valid_metrics['mLoss']:
+                torch.save(model.state_dict(), f'{args.model_dir}/best_model_ckpt_{tag}.pt')
+                torch.save(optimizer.state_dict(), f'{args.model_dir}/best_optim_ckpt_{tag}.pt')
+                best_point_metrics.update(valid_metrics) 
+                best_point_metrics['current_epoch'] = epoch 
+                prev_loss = valid_metrics['mLoss']
              
+            monitor.update(metrics = {
+                'train': train_metrics,
+                'validation': valid_metrics,
+                'best_point': best_point_metrics
+            }) 
+        
         torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
         torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
-        
-        monitor.update(metrics = {
-            'train': train_metrics,
-            'validation': valid_metrics,
-            'best_point': best_point_metrics
-        }) 
     return
 
 
