@@ -178,10 +178,8 @@ def inference() -> None:
 def main():
     global args 
     args = _parse_args()
-    print('mode: ', args.mode)
-    
-    
-    eval(args.mode+'()')
+    inference()
+    #eval(args.mode+'()')
     
     
     
