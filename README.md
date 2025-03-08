@@ -42,8 +42,9 @@ python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} --m
 ```
 
 ## Evaluation (To-Be-Done)
+To get likelihood & Recall vs Precision curve:
 ```
-python3 accident_risk_score.py --tag <TAG> --model_ckpt <path to model checkpoint> --video_id <VIDEOID> --csv_file <path to csv file> --output_dir eval
+python3 ./eval.py --model_ckpt ./model/best_model_ckpt_bs16_lr0.0001.pt 
 ```
 
 ## Download DAD dataset
