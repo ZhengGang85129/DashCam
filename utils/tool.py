@@ -52,13 +52,13 @@ class Monitor(object):
     metrics = {
         '0': {
             'name': 'mLoss',
-            'title': 'Anticipation Loss',
-            'y_lim': (0.2, 1.5)
+            'title': 'Loss',
+            'y_lim': (0.0, 1.5)
         }, 
         '1': {
             'name': 'mPrec',
             'title': 'Averaged Precision',
-            'y_lim': (0.4, 0.8)
+            'y_lim': (0.4, 1.1)
         },
         '2': {
             'name': 'mRecall',
@@ -68,7 +68,7 @@ class Monitor(object):
         '3': {
             'name': 'mAcc',
             'title': 'Averaged Accuracy',
-            'y_lim': (0.4, 0.8)
+            'y_lim': (0.4, 1.1)
         }
     }
     
@@ -109,8 +109,8 @@ class Monitor(object):
             
             x = np.arange(1, len(Y_train) + 1).tolist()
             epochs = [epoch * n_steps_per_update for epoch in x] 
-            self.ax[index].plot(epochs, Y_train, label = 'train-epoch')
-            self.ax[index].plot(epochs, Y_evaltrain, label = 'eval-train')
+            self.ax[index].plot(epochs, Y_train, 'g-o',label = 'train-epoch')
+            self.ax[index].plot(epochs, Y_evaltrain, 'r-o',label = 'eval-train')
             
             if metric['name'] == 'mLoss':
                 Loss_record = self.state['train']['Loss_record']
@@ -122,7 +122,7 @@ class Monitor(object):
                 ax_twiny.xaxis.tick_top()
                 for epoch in range(len(epochs) + 1):
                     ax_twiny.axvline(x=epoch, color='gray', linestyle='--', alpha=0.3)
-            
+                #ax_twiny.set_xticks([epoch for epoch in range(len(epochs))] + [len(epochs) + 1]) 
             self.ax[index].set_ylim(*metric['y_lim'])
             self.ax[index].set_title(metric['title'])
             
@@ -151,6 +151,7 @@ class Monitor(object):
         self.fig.savefig(self.save_path + '.png') 
         self.fig.savefig(self.save_path + '.pdf') 
         print(f'Check {self.save_path}.png')
+        print(f'Check {self.save_path}.pdf')
         print(f'Check {self.save_path} for numerical results over epochs.')
         return
     def __record(self) -> None:
@@ -184,44 +185,56 @@ class Monitor(object):
 
 
 if __name__ == '__main__':
-    train_iterations = np.arange(1, 1001).tolist() 
-    train_loss = np.random.rand(1000) * 2  # Random data for illustration
+    train_iterations = np.arange(1, 1201).tolist() 
+    train_loss = np.random.rand(1200) + 0.2  # Random data for illustration
     train_loss.sort()  # Making it trend downward
+    
     train_loss = train_loss[::-1].tolist()  # Flip to get decreasing trend
-    epoch_loss = np.random.rand(10) * 1.5 + 0.5  # Random data
+    epoch_loss = np.random.rand(12) * 1 + 0.1  # Random data
     epoch_loss.sort()  # Making it trend downward
     epoch_loss = epoch_loss[::-1].tolist()  # Flip to get decreasing trend
-
+    train_accuracy = np.random.rand(12) * 0.8 + 0.2  # Random data
+    train_accuracy.sort()  # Making it trend downward
+    train_accuracy = train_accuracy[::].tolist()  # Flip to get decreasing trend
+    
+    
+    
     # Validation loss per epoch
     val_epochs = np.arange(1, 11).tolist()   # Assuming 10 epochs
-    val_loss = np.random.rand(10) * 1.5 + 0.5  # Random data
+    val_loss = np.random.rand(12) * 1 + 0.2  # Random data
     val_loss.sort()  # Making it trend downward
-    val_loss = val_loss[::-1].tolist()  # Flip to get decreasing trend
+    val_loss2 = np.random.rand(200) 
+    val_loss2.sort()  # Making it trend downward
+    val_loss = val_loss[::-1].tolist() + val_loss2[::-1].tolist() # Flip to get decreasing trend
     # Assuming each epoch contains 100 iterations (adjust based on your data)
-    iterations_per_epoch = 100
+    val_accuracy = np.random.rand(12) * 0.7 + 0.1  # Random data
+    val_accuracy.sort()  # Making it trend downward
+    val_accuracy = val_accuracy[::].tolist()  # Flip to get decreasing trend
+    # Assuming each epoch contains 100 iterations (adjust based on your data)
+    iterations_per_epoch = 100 
     A = Monitor(save_path = './', tag = '123', resume = False, iterations_per_epoch = iterations_per_epoch)
     
-    for epoch in range(10): 
+    for epoch in range(12): 
         metrics = {
             'train':{
-            'mPrec': epoch_loss[epoch],
-            'mRecall': epoch_loss[epoch],
+            'mPrec': train_accuracy[epoch],
+            'mRecall': train_accuracy[epoch],
             'mLoss': epoch_loss[epoch],
-            'mAcc': epoch_loss[epoch],
+            'mAcc': train_accuracy[epoch],
             'Loss_record': train_loss[epoch * iterations_per_epoch: (epoch + 1) * iterations_per_epoch] 
             },
             'validation': {
-            'mPrec': val_loss[epoch],
-            'mRecall': val_loss[epoch],
+            'mPrec': val_accuracy[epoch],
+            'mRecall': val_accuracy[epoch],
             'mLoss': val_loss[epoch],
-            'mAcc': val_loss[epoch] 
+            'mAcc': val_accuracy[epoch] 
             },
             'best_point':{
-                'mLoss': 0.5,
-                'mPrec': 0.6,
-                'mRecall': 0.8,
-                'mAcc': 0.8,
-                'current_epoch': 5
+                'mLoss': val_loss[epoch],
+                'mPrec': 1 + val_accuracy[epoch],
+                'mRecall': 1 + val_accuracy[epoch],
+                'mAcc': 1 + val_accuracy[epoch],
+                'current_epoch': 1 + epoch
             }
         }
     
