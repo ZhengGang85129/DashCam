@@ -5,7 +5,6 @@ from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
 import logging
 from typing import Tuple, Dict, Union
 
-from utils.loss import AnticipationLoss
 import torch.nn as nn
 from utils.tool import AverageMeter, Monitor
 from utils.misc import print_trainable_parameters
@@ -42,6 +41,10 @@ def train_parse_args() -> argparse.ArgumentParser:
                         type=int, 
                         default=16,
                         help='batch size for training (default: 16)')
+    parser.add_argument('--num_workers', 
+                        type=int, 
+                        default = 4,
+                        help='number of workers (default: 4)')
     
     _args = parser.parse_args()
     return _args 
@@ -78,7 +81,7 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
         indices = list(range(len(train_dataset)))
         indices = indices[:max_size]
         train_dataset = torch.utils.data.Subset(train_dataset, indices)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle = True, num_workers = 4, pin_memory = True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle = True, num_workers = NUM_WORKERS, pin_memory = True)
     
     if DEBUG:
         return train_loader, None
@@ -107,7 +110,8 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
     FP_meter = AverageMeter() #False postive
     FN_meter = AverageMeter() #False negative
     TN_meter = AverageMeter() #True negative
-    
+    train_loss_over_iterations = []
+     
     max_iter = EPOCHS * len(train_loader)
     dataset_per_epoch = len(train_loader)
     start = time.time() 
@@ -149,6 +153,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         FP_meter.update(torch.logical_and(positive, false_case).sum().item()) 
         TN_meter.update(torch.logical_and(negative, false_case).sum().item()) 
         FN_meter.update(torch.logical_and(negative, true_case).sum().item()) 
+        train_loss_over_iterations.append(loss_meter.current_value)
         
         if (((mini_batch_index + 1) % PRINT_FREQ) == 0) or (mini_batch_index + 1 == len(train_loader)):
             logger.info(f'Epoch: [{epoch + 1:03d}/{EPOCHS:03d}][{mini_batch_index + 1:03d}/{dataset_per_epoch}] '
@@ -167,7 +172,8 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
     return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum  + EPS),
             'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS),
             'mLoss': loss_meter.avg_value,
-            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS)
+            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS),
+            'Loss_record': train_loss_over_iterations
                 } 
 
 
@@ -250,9 +256,9 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
 
-    args = train_parse_args(parser_name = 'Training')
+    args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")
@@ -263,6 +269,7 @@ def main():
     LR_RATE = args.learning_rate
     DEBUG = args.debug # debug mode if --debug is added
     EPS = 1e-8 # small number to avoid zero-division
+    NUM_WORKERS = args.num_workers
     #DECAY_NFRAME = 20
     set_seed(123)
     logger = get_logger()
@@ -279,7 +286,7 @@ def main():
     np = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Total number of parameters in model: {np}")
     logger.info("Trainable Architecture Components:")
-    print_trainable_parameters(model)
+    print_trainable_parameters(model, logger = logger)
     Loss_fn = nn.CrossEntropyLoss()
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     
@@ -293,7 +300,10 @@ def main():
     os.makedirs(args.monitor_dir, exist_ok = True) # save training details under this folder
     
     tag = f'bs{BATCH_SIZE}_lr{LR_RATE}'
-    monitor = Monitor(save_path = args.monitor_dir, tag = tag)
+    iterations_per_epoch = len(train_dataloader.dataset) // train_dataloader.batch_size + int(len(train_dataloader.dataset) % train_dataloader.batch_size != 0)
+    monitor = Monitor(save_path = args.monitor_dir, tag = tag, iterations_per_epoch = iterations_per_epoch)
+    
+    
     best_point_metrics = {
         'mLoss': float('inf'),
         'mPrec': -float('inf'),
@@ -315,7 +325,7 @@ def main():
                 torch.save(model.state_dict(), f'{args.model_dir}/best_model_ckpt_{tag}.pt')
                 torch.save(optimizer.state_dict(), f'{args.model_dir}/best_optim_ckpt_{tag}.pt')
                 best_point_metrics.update(valid_metrics) 
-                best_point_metrics['current_epoch'] = epoch 
+                best_point_metrics['current_epoch'] = epoch + 1
                 prev_loss = valid_metrics['mLoss']
              
             monitor.update(metrics = {
