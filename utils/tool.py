@@ -109,8 +109,6 @@ class Monitor(object):
             
             x = np.arange(1, len(Y_train) + 1).tolist()
             epochs = [epoch * n_steps_per_update for epoch in x] 
-            self.ax[index].plot(epochs, Y_train, 'g-o',label = 'train-epoch')
-            self.ax[index].plot(epochs, Y_evaltrain, 'r-o',label = 'eval-train')
             
             if metric['name'] == 'mLoss':
                 Loss_record = self.state['train']['Loss_record']
@@ -123,6 +121,8 @@ class Monitor(object):
                 for epoch in range(len(epochs) + 1):
                     ax_twiny.axvline(x=epoch, color='gray', linestyle='--', alpha=0.3)
                 #ax_twiny.set_xticks([epoch for epoch in range(len(epochs))] + [len(epochs) + 1]) 
+            self.ax[index].plot(epochs, Y_train, 'g-o',label = 'train-epoch')
+            self.ax[index].plot(epochs, Y_evaltrain, 'r-o',label = 'eval-train')
             self.ax[index].set_ylim(*metric['y_lim'])
             self.ax[index].set_title(metric['title'])
             
