@@ -53,7 +53,7 @@ class Monitor(object):
         '0': {
             'name': 'mLoss',
             'title': 'Anticipation Loss',
-            'y_lim': (0., 0.1)
+            'y_lim': (0.2, 0.8)
         }, 
         '1': {
             'name': 'mPrec',
