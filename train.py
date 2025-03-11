@@ -27,16 +27,19 @@ from utils.misc import parse_args
 
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training') 
-    parser.add_argument('--monitor_dir', 
+    parser.add_argument('--monitor_dir',
                         type=str, default='monitor_train',
                         help='directory to save monitoring plots (default: ./train)')
+    parser.add_argument('--model_dir',
+                        type=str, default='model_ckpt',
+                        help='directory to save monitoring plots (default: ./model_ckpt)')
     parser.add_argument('--learning_rate', 
                         type=float, 
                         default=0.01,
                         help='learning rate (default: 0.01)')
     parser.add_argument('--epochs', 
-                        type=int, default=10,
-                        help='number of epochs to train (default: 10)')
+                        type=int, default=20,
+                        help='number of epochs to train (default: 20)')
     parser.add_argument('--batch_size', 
                         type=int, 
                         default=16,
@@ -334,8 +337,8 @@ def main():
                 'best_point': best_point_metrics
             }) 
         
-        torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
-        torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
+        # torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
+        # torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
     return
 
 

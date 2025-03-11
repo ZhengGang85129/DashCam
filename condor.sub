@@ -13,10 +13,9 @@ arguments = $(batch_size) $(learning_rate)
 
 # Create a queue for each combination
 queue batch_size, learning_rate from (
-   16 0.01
-   16 0.001
-   32 0.01
-   32 0.001
-   64 0.01
-   64 0.001
+   10 0.01
+   10 0.005
+   10 0.001
+   10 0.0005
+   10 0.0001
 )
