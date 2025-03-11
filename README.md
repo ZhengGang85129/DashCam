@@ -47,7 +47,13 @@ To get likelihood & Recall vs Precision curve:
 python3 ./eval.py --model_ckpt ./model/best_model_ckpt_bs16_lr0.0001.pt 
 ```
 
-## Download DAD dataset
+## Inference
+```
+python3 ./submission.py
+kaggle competitions submit -c nexar-collision-prediction -f submission.csv -m "Message"
+```
+
+## Download DAD dataset (Ignored)
 ```
 pip3 install gdown;
 gdown 1Z_vUmhGe4lES0ASUcROK58q7fjFTU_Y3;

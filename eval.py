@@ -169,7 +169,7 @@ def inference() -> None:
     
     probs =  np.concatenate([p.flatten().cpu().numpy() for p in probs])
     truth = np.concatenate([p.flatten().cpu().numpy() for p in truth])
-    os.mkdirs(args.save_dir, exists = True)
+    os.makedirs(args.save_dir, exist_ok=True)
     plot_likelihood(pred = probs, truth = truth)
     manual_precision_recall_curve(y_pred = probs, y_true = truth) 
     return
