@@ -5,9 +5,9 @@ from sklearn.model_selection import train_test_split
 
 def split(ratio: float = 0.1):
     df = pd.read_csv(dataset)
-    train_val_df, eval_df = train_test_split(df, test_size=0.01, random_state=42)
+    train_df, eval_df = train_test_split(df, test_size=0.2, random_state=42)
  
-    train_df, val_df = train_test_split(train_val_df, test_size=0.2, random_state=42)
+    eval_df, val_df = train_test_split(eval_df, test_size=0.5, random_state=42)
 
 # Verify the sizes
     print(f"Total records: {len(df)}")

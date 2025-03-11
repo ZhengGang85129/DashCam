@@ -1,25 +1,25 @@
 import torch
 import torch.nn as nn
-from model import DSA_RNN
+from models.model import DSA_RNN
 import os
-from typing import Union, List, Tuple
-from tool import get_device
+from typing import Union, Tuple
+from utils.tool import get_device
 import cv2
 import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
 import time
 import pandas as pd
-import argparse
 from datetime import datetime
 import torch.nn.functional as F
+from utils.misc import parse_args
 '''
 usage: python3 accident_risk_score.py --tag <TAG> --model_ckpt <path to model checkpoint> --video_id <VIDEOID> --csv_file <path to csv file> --output_dir eval
 '''
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='TTA inference')
+def _parse_args():
+    parser = parse_args(parser_name='TTA inference')
 
     parser.add_argument('--tag', type=str, help='tag for output file', required = True)
     parser.add_argument('--model_ckpt', type=str, default='model/best_model_ckpt.pt',
@@ -31,9 +31,9 @@ def parse_args():
     parser.add_argument('--output_dir', type = str, help = 'Folder which storing the output plot.', default = 'eval') 
     parser.add_argument('--full_video', help = 'infer on full video or clips', action = 'store_true') 
     
-    args = parser.parse_args()
+    _args = parser.parse_args()
     #parser.print_help()
-    return args
+    return _args
 
 
 
@@ -179,9 +179,9 @@ class AccidentPredictor:
 
 def main():
    global args
-   args = parse_args() 
+   args = _parse_args() 
    predictor = AccidentPredictor(state_path = args.model_ckpt, device = get_device(), tag = args.tag, output_dir = args.output_dir)
-   output_score = predictor.predict_on(index = args.video_id, csv_file = args.csv_file, full_video = args.full_video)
+   predictor.predict_on(index = args.video_id, csv_file = args.csv_file, full_video = args.full_video)
     
 
 if __name__ == '__main__':
