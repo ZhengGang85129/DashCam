@@ -22,7 +22,7 @@ from datetime import datetime
 from models.factory import get_model
 #r3d_18
 from utils.misc import parse_args
-
+from torch.amp import autocast, GradScaler
 
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training') 
@@ -101,7 +101,7 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4, pin_memory = True) 
     return train_loader, val_loader
 
-def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int, optimizer: torch.optim.Optimizer) -> Dict[str, float]:
+def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int, optimizer: torch.optim.Optimizer, scaler: GradScaler) -> Dict[str, float]:
     
     model.train()
     
@@ -128,12 +128,14 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X, target = data
         X = X.to(device)
         target = target.to(device)
-        optimizer.zero_grad() 
-        output = model(X)
-        loss = criterion(output, target) 
-        loss.backward() 
-        optimizer.step()
+        with autocast():
+            output = model(X)
+            loss = criterion(output, target) 
         
+        optimizer.zero_grad() 
+        scaler.scale(loss).backward() # backward and optimize with scaler 
+        scaler.step(optimizer)
+        scaler.update()
         # Positive and Negative cases counting
         positive_probs = F.softmax(output, dim=-1)[:, 1] 
         positive = (positive_probs >= 0.5)
@@ -215,13 +217,12 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             batch_size, num_crops, T, C, H, W = X.shape
             all_crops = X.view(-1, T, C, H, W)
 
-            outputs = model(all_crops)
-            outputs = outputs.view(batch_size, num_crops, -1)
-            avg_outputs = outputs.mean(dim=1)
-            
-            target = target.to(device)
-            
-            loss = criterion(avg_outputs, target) 
+            with autocast: 
+                outputs = model(all_crops)
+                outputs = outputs.view(batch_size, num_crops, -1)
+                avg_outputs = outputs.mean(dim=1)
+                target = target.to(device)
+                loss = criterion(avg_outputs, target) 
 
             # Positive and Negative cases counting
             positive_probs = F.softmax(avg_outputs, dim=-1)[:, 1] 
@@ -306,6 +307,8 @@ def main():
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     
     optimizer = torch.optim.RAdam([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
+    scaler = GradScaler() #change the loss to mixed-precision to save memory
+    
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}') 
     logger.info(f'Load dataset...') 
@@ -331,7 +334,7 @@ def main():
      
     for epoch in range(EPOCHS):
         logger.info('Training...')
-        train_metrics = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
+        train_metrics = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn, scaler = scaler)
         logger.info('Evaluating...')
         if not DEBUG:
             valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
