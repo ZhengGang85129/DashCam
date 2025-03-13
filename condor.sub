@@ -1,21 +1,16 @@
 executable              = train.sh
-arguments               = $(ClusterId)$(ProcId)
-output                  = matrix.bs$(batch_size).lr$(learning_rate).$(ClusterId).$(ProcId).out
-error                   = matrix.bs$(batch_size).lr$(learning_rate).$(ClusterId).$(ProcId).err
+arguments               = $(batch_size) $(learning_rate) $(aug_mode)
+output                  = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_mode).$(ClusterId).$(ProcId).out
+error                   = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_mode).$(ClusterId).$(ProcId).err
 log                     = matrix.$(ClusterId).log
 when_to_transfer_output = ON_EXIT
 request_GPUs = 1
 request_CPUs = 12
 +JobFlavour = "testmatch"
 
-# Define the arguments for each job
-arguments = $(batch_size) $(learning_rate)
-
 # Create a queue for each combination
-queue batch_size, learning_rate from (
-   10 0.01
-   10 0.005
-   10 0.001
-   10 0.0005
-   10 0.0001
+queue batch_size, learning_rate, aug_mode from (
+   10 0.0001 0
+   10 0.0001 1
+   10 0.0001 2
 )

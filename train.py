@@ -3,6 +3,7 @@ import torch.optim.optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
+from utils.augmented_dataset import AugmentedVideoDataset  # Import the new augmented dataset class
 import logging
 from typing import Tuple, Dict, Union
 
@@ -34,20 +35,25 @@ def train_parse_args() -> argparse.ArgumentParser:
                         help='directory to save monitoring plots (default: ./train)')
     parser.add_argument('--learning_rate', 
                         type=float, 
-                        default=0.01,
-                        help='learning rate (default: 0.01)')
+                        default=0.0001,
+                        help='learning rate (default: 0.0001)')
     parser.add_argument('--epochs', 
                         type=int, default=20,
                         help='number of epochs to train (default: 20)')
     parser.add_argument('--batch_size', 
                         type=int, 
-                        default=16,
-                        help='batch size for training (default: 16)')
+                        default=10,
+                        help='batch size for training (default: 10)')
     parser.add_argument('--num_workers', 
                         type=int, 
                         default = 4,
                         help='number of workers (default: 4)')
-    
+    parser.add_argument('--use_augmentation',
+                        action='store_true',
+                        help='Whether to use data augmentation')
+    parser.add_argument('--use_advanced_augmentation',
+                        action='store_true',
+                        help='Whether to use advanced augmentation techniques like rain simulation') 
     _args = parser.parse_args()
     return _args 
 
@@ -74,24 +80,29 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
         train_dataloader(torch.utils.data.DataLoader)
         val_dataloader(torch.utils.data.DataLoader)
     ''' 
-    train_dataset = VideoTo3DImageDataset(
+    train_dataset = AugmentedVideoDataset(
         root_dir="./dataset/train/",
         csv_file = './dataset/train_videos.csv',
+        augment=AUG,
+        use_advanced_transforms=ADV_AUG
     )
     if DEBUG:
         max_size = 64
         indices = list(range(len(train_dataset)))
         indices = indices[:max_size]
         train_dataset = torch.utils.data.Subset(train_dataset, indices)
+
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = BATCH_SIZE, shuffle = True, num_workers = NUM_WORKERS, pin_memory = True)
     
     if DEBUG:
         return train_loader, None
     
-    
-    val_dataset = VideoTo3DImageDataset(
+    # For validation, we use the same dataset class but disable augmentation
+    val_dataset = AugmentedVideoDataset(
         root_dir="./dataset/train",
         csv_file = './dataset/validation_videos.csv',
+        augment=False, # No augmentation for validation
+        use_advanced_transforms=False
     )
     
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4, pin_memory = True) 
@@ -258,12 +269,14 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, AUG, ADV_AUG
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")
+    print(f"Using augmentation: {args.use_augmentation}")
+    print(f"Using advanced augmentation: {args.use_advanced_augmentation}")
 
     BATCH_SIZE = args.batch_size
     PRINT_FREQ = 4
@@ -272,6 +285,8 @@ def main():
     DEBUG = args.debug # debug mode if --debug is added
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
+    AUG = args.use_augmentation
+    ADV_AUG = args.use_advanced_augmentation
     #DECAY_NFRAME = 20
     set_seed(123)
     logger = get_logger()
@@ -302,7 +317,7 @@ def main():
     os.makedirs(args.model_dir, exist_ok = True) # save model parameters under this folder
     os.makedirs(args.monitor_dir, exist_ok = True) # save training details under this folder
     
-    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}'
+    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}_aug{int(args.use_augmentation)}_adv{int(args.use_advanced_augmentation)}'
     iterations_per_epoch = len(train_dataloader.dataset) // train_dataloader.batch_size + int(len(train_dataloader.dataset) % train_dataloader.batch_size != 0)
     monitor = Monitor(save_path = args.monitor_dir, tag = tag, iterations_per_epoch = iterations_per_epoch)
     
