@@ -12,7 +12,7 @@ class baseline_model(nn.Module):
         self.model = r3d_18(weights = R3D_18_Weights.DEFAULT)
         self.model.fc = nn.Linear(self.model.fc.in_features, 2)  # Modify output layer for binary classification
         for name, param in self.model.named_parameters():
-            if "fc" not in param:
+            if "fc" not in name:
                 param.requires_grad = False
         
     def forward(self, x:torch.Tensor)->torch.Tensor:
