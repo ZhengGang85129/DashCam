@@ -19,8 +19,7 @@ import argparse
 from torchvision import transforms
 import torch.nn.functional as F
 from datetime import datetime
-from models.model import DSA_RNN
-from models.model import baseline_model
+from models.factory import get_model
 #r3d_18
 from utils.misc import parse_args
 
@@ -45,7 +44,13 @@ def train_parse_args() -> argparse.ArgumentParser:
                         type=int, 
                         default = 4,
                         help='number of workers (default: 4)')
-    
+    parser.add_argument('--model_type', 
+                        type=str, 
+                        default = 'baseline_model',
+                        help='type of model (default: baseline_model)',
+                        choices = ['timesformer', 'baseline_model', 'dsa_rnn']
+                        )
+     
     _args = parser.parse_args()
     return _args 
 
@@ -90,6 +95,7 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
     val_dataset = VideoTo3DImageDataset(
         root_dir="./dataset/train",
         csv_file = './dataset/validation_videos.csv',
+        mode = 'validation'
     )
     
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4, pin_memory = True) 
@@ -179,6 +185,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
 
 def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int)-> Dict[str, float]:
     
+    
     model.eval()
     
     batch_time = AverageMeter() 
@@ -205,11 +212,19 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device)
             target = target.to(device)
-            output = model(X)
-            loss = criterion(output, target) 
+            batch_size, num_crops, T, C, H, W = X.shape
+            all_crops = X.view(-1, T, C, H, W)
+
+            outputs = model(all_crops)
+            outputs = outputs.view(batch_size, num_crops, -1)
+            avg_outputs = outputs.mean(dim=1)
+            
+            target = target.to(device)
+            
+            loss = criterion(avg_outputs, target) 
 
             # Positive and Negative cases counting
-            positive_probs = F.softmax(output, dim=-1)[:, 1] 
+            positive_probs = F.softmax(avg_outputs, dim=-1)[:, 1] 
             positive = (positive_probs >= 0.5)
             positive.requires_grad = False
             negative =  ~positive
@@ -279,7 +294,7 @@ def main():
     logger.info("=> creating model")
     
     
-    model = baseline_model()
+    model = get_model(args.model_type)
      
     model.to(device)
     
