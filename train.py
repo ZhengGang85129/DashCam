@@ -128,7 +128,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X, target = data
         X = X.to(device)
         target = target.to(device)
-        with autocast():
+        with autocast(device_type = device.type):
             output = model(X)
             loss = criterion(output, target) 
         
@@ -217,7 +217,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             batch_size, num_crops, T, C, H, W = X.shape
             all_crops = X.view(-1, T, C, H, W)
 
-            with autocast: 
+            with autocast(device_type = device.type): 
                 outputs = model(all_crops)
                 outputs = outputs.view(batch_size, num_crops, -1)
                 avg_outputs = outputs.mean(dim=1)
