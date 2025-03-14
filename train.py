@@ -23,6 +23,7 @@ from models.factory import get_model
 #r3d_18
 from utils.misc import parse_args
 from torch.amp import autocast, GradScaler
+from utils.optim import get_optimizer
 
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training') 
@@ -50,7 +51,10 @@ def train_parse_args() -> argparse.ArgumentParser:
                         help='type of model (default: baseline_model)',
                         choices = ['timesformer', 'baseline_model', 'dsa_rnn']
                         )
-     
+    parser.add_argument('--optim', type = str,
+                        default = 'sgd',
+                        help = 'type of optimizer (default: sgd)'
+                        ) 
     _args = parser.parse_args()
     return _args 
 
@@ -306,7 +310,7 @@ def main():
     Loss_fn = nn.CrossEntropyLoss()
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     
-    optimizer = torch.optim.RAdam([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
+    optimizer = get_optimizer(name = args.optim)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     scaler = GradScaler() #change the loss to mixed-precision to save memory
     
     logger.info(f'{optimizer}')
