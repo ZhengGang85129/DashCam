@@ -17,7 +17,7 @@ if [ -z "$aug_prob" ]; then
 fi
 
 # Set up augmentation arguments
-if [ -z "$aug_types" ]; then
+if [ "$aug_types" = "-" ] || [ -z "$aug_types" ]; then
     # No augmentation if aug_types is empty
     python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} --monitor_dir ${monitor_dir}
 else

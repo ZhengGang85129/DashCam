@@ -202,12 +202,12 @@ class AugmentedVideoDataset(Dataset):
                 brightness = random.uniform(0.8, 1.2)
                 contrast = random.uniform(0.8, 1.2)
                 saturation = random.uniform(0.8, 1.2)
-                hue = random.uniform(-0.1, 0.1)
+                hue_range = (0.0, 0.1)  # This is valid: range from 0 to 0.1 shift
                 color_jitter = transforms.ColorJitter(
                     brightness=brightness,
                     contrast=contrast,
                     saturation=saturation,
-                    hue=hue
+                    hue=hue_range
                 )
                 video_transforms.append(color_jitter)
 
@@ -220,7 +220,7 @@ class AugmentedVideoDataset(Dataset):
             if apply_fog:
                 fog_intensity = random.uniform(0.1, 0.2)
 
-
+            # For noise effect, pre-generate parameters
             if apply_noise:
                 noise_factor = random.uniform(0.01, 0.03)
 
