@@ -18,8 +18,8 @@ class AugmentedVideoDataset(Dataset):
         root_dir: str = "./dataset/train",
         csv_file: str = './dataset/train.csv',
         num_frames: int = 16,
-        augment: bool = True,
-        use_advanced_transforms: bool = True,
+        augmentation_config: dict = None,
+        augmentation_prob: dict = None,
     ):
         """
         Initialize the augmented video dataset.
@@ -27,17 +27,42 @@ class AugmentedVideoDataset(Dataset):
             root_dir (str): Directory containing the video files
             csv_file (str): Path to CSV file with video metadata
             num_frames (int): Number of frames to sample from each video
-            augment (bool): Whether to apply data augmentation
-            use_advanced_transforms (bool): Whether to apply advanced augmentation techniques
+            augmentation_config (dict): Bolleans to enable apply augmentation to video
+            augmentation_prob (dict): Probabilities to apply augmentation to video
         """
+
+        # Default configuration (no augmentation)
+        self.aug_config = {
+            'fog': False,
+            'noise': False,
+            'gaussian_blur': False,
+            'color_jitter': False,
+            'horizontal_flip': False,
+            'rain_effect': False,
+        }
+
+        self.aug_prob = {
+            'fog': 0.3,
+            'noise': 0.3,
+            'gaussian_blur': 0.3,
+            'color_jitter': 0.3,
+            'horizontal_flip': 0.3,
+            'rain_effect': 0.3,
+        }
+
+        # Override with user configuration if provided
+        if augmentation_config:
+            self.aug_config = augmentation_config
+
+        if augmentation_prob:
+            self.aug_prob = augmentation_prob
+
         self.root_dir = root_dir
         self.data_frame = pd.read_csv(csv_file)
         self.video_indices = self.data_frame['id'].to_list() 
         self.video_files = dict()
         global_index = 0
         self.num_frames = num_frames 
-        self.augment = augment
-        self.use_advanced_transforms = use_advanced_transforms
         
         # Basic transforms that are always applied
         self.base_transforms = transforms.Compose([
@@ -48,26 +73,13 @@ class AugmentedVideoDataset(Dataset):
         ])
         
         # Basic augmentation transforms
-        self.aug_transforms = transforms.Compose([
-            transforms.RandomApply([
-                transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1)
-            ], p=0.5),
-            transforms.RandomApply([
-                transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))
-            ], p=0.3),
-            transforms.RandomHorizontalFlip(p=0.5),
-            # Simulating fog/noise
-            transforms.RandomApply([
-                transforms.Lambda(lambda x: self._add_noise(x, noise_factor=0.02))
-            ], p=0.3),
-            transforms.RandomApply([
-                transforms.Lambda(lambda x: self._add_fog(x, fog_intensity=0.15))
-            ], p=0.3),
-        ])
+        self.apply_fog             = transforms.RandomApply([ transforms.Lambda(lambda x: self._add_fog(x, fog_intensity=0.15)) ]            , p=self.aug_prob['fog'])
+        self.apply_noise           = transforms.RandomApply([ transforms.Lambda(lambda x: self._add_noise(x, noise_factor=0.02)) ]           , p=self.aug_prob['noise'])
+        self.apply_gaussian_blur   = transforms.RandomApply([ transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0)) ]                     , p=self.aug_prob['gaussian_blur'])
+        self.apply_color_jitter    = transforms.RandomApply([ transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1) ], p=self.aug_prob['color_jitter'])
+        self.apply_horizontal_flip = transforms.RandomHorizontalFlip(p=self.aug_prob['horizontal_flip'])
         
-        # Advanced transforms (optional)
-        self.advanced_transforms = get_advanced_transforms(apply_prob=0.3)
-         
+        # Load videos
         for Index in self.video_indices:
             file = os.path.join(root_dir, f'{Index:05d}.mp4')
             if os.path.isfile(file):
@@ -112,7 +124,7 @@ class AugmentedVideoDataset(Dataset):
         frames = []
         
         # Determine if we'll add rain effect to the entire video
-        apply_rain_to_video = self.augment and self.use_advanced_transforms and random.random() < 0.2
+        apply_rain_to_video = self.aug_config['rain_effect'] and random.random() < self.aug_prob['rain_effect']
         
         for i in range(0, total_frames, interval):
             video.set(cv2.CAP_PROP_POS_FRAMES, i)
@@ -124,20 +136,22 @@ class AugmentedVideoDataset(Dataset):
             frame_tensor = self.base_transforms(frame.astype(np.float32) / 255.0)
             
             # Apply basic augmentations during training
-            if self.augment:
-                frame_tensor = self.aug_transforms(frame_tensor)
-                
-                # Apply advanced transforms if enabled
-                if self.use_advanced_transforms:
-                    frame_tensor = self.advanced_transforms(frame_tensor)
-                    
-                # Apply rain effect consistently across all frames in the video if selected
-                if apply_rain_to_video:
-                    frame_tensor = simulate_rain(
-                        frame_tensor, 
-                        drop_length=random.randint(1, 5),
-                        drop_count=random.randint(10, 40)
-                    )
+            if self.aug_config['fog']:
+                frame_tensor = self.apply_fog(frame_tensor)
+            if self.aug_config['noise']:
+                frame_tensor = self.apply_noise(frame_tensor)
+            if self.aug_config['gaussian_blur']:
+                frame_tensor = self.apply_gaussian_blur(frame_tensor)
+            if self.aug_config['color_jitter']:
+                frame_tensor = self.apply_color_jitter(frame_tensor)
+            if self.aug_config['horizontal_flip']:
+                frame_tensor = self.apply_horizontal_flip(frame_tensor)
+            if apply_rain_to_video:
+                frame_tensor = simulate_rain(
+                    frame_tensor, 
+                    drop_length=random.randint(1, 5),
+                    drop_count=random.randint(10, 40)
+                )
                 
             frames.append(frame_tensor)
             frames_saved += 1
@@ -163,38 +177,6 @@ class AugmentedVideoDataset(Dataset):
         # Stack frames into a single tensor
         
         return torch.stack(frames, dim=1), target
-
-
-# Additional transforms that can be used independently
-def get_advanced_transforms(apply_prob=0.5):
-    """
-    Create more sophisticated augmentation transforms.
-    
-    Args:
-        apply_prob (float): Probability of applying each augmentation
-        
-    Returns:
-        transforms.Compose: Composed transforms
-    """
-    return transforms.Compose([
-        # Spatial augmentations
-        transforms.RandomApply([
-            transforms.RandomRotation(15)
-        ], p=apply_prob),
-        transforms.RandomApply([
-            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1))
-        ], p=apply_prob),
-        
-        # Color/intensity augmentations
-        transforms.RandomApply([
-            transforms.RandomGrayscale(p=0.2)
-        ], p=apply_prob),
-        
-        # Add more sophisticated weather simulations
-        transforms.RandomApply([
-            transforms.Lambda(lambda x: simulate_rain(x, drop_length=20, drop_width=1, drop_count=20))
-        ], p=apply_prob * 0.5),
-    ])
 
 def simulate_rain(img, drop_length=20, drop_width=1, drop_count=20):
     """
