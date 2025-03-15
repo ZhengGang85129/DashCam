@@ -338,15 +338,14 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, USEAUG
-    global num_frames, aug_config, aug_prob
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")
 
-    if augmentation_types:
+    if args.augmentation_types:
         print(f"Using augmentation types: {args.augmentation_types}")
 
     BATCH_SIZE = args.batch_size
@@ -356,7 +355,6 @@ def main():
     DEBUG = args.debug # debug mode if --debug is added
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
-    USEAUG = args.augmentation_types is not None
     #DECAY_NFRAME = 20
 
     set_seed(123)
@@ -392,8 +390,16 @@ def main():
     os.makedirs(args.model_dir, exist_ok = True) # save model parameters under this folder
     os.makedirs(args.monitor_dir, exist_ok = True) # save training details under this folder
 
-    aug_tag = '_aug' if USEAUG else ''
+    # Generate a tag that describes the configuration
+    if args.augmentation_types:
+        # Create a shorter tag for augmentation types
+        aug_types_str = '_'.join([t[:3] for t in sorted(args.augmentation_types)])
+        aug_tag = f'_aug_{aug_types_str}'
+    else:
+        aug_tag = ''
+
     tag = f'bs{BATCH_SIZE}_lr{LR_RATE}{aug_tag}'
+    logger.info(f"Using tag: {tag}")
 
     iterations_per_epoch = len(train_dataloader.dataset) // train_dataloader.batch_size + int(len(train_dataloader.dataset) % train_dataloader.batch_size != 0)
     monitor = Monitor(save_path = args.monitor_dir, tag = tag, iterations_per_epoch = iterations_per_epoch)
