@@ -13,19 +13,19 @@ from PIL import Image
 # from utils.augmented_dataset import AugmentedVideoDataset
 
 # Define functions for creating various augmentations
-def add_noise(img, noise_factor=0.1):
+def add_noise(img, noise_factor=0.02):
     """Add random noise to an image tensor"""
     noise = torch.randn_like(img) * noise_factor
     noisy_img = img + noise
     return torch.clamp(noisy_img, 0., 1.)
 
-def add_fog(img, fog_intensity=0.3):
+def add_fog(img, fog_intensity=0.15):
     """Simulate fog effect by adding a bright overlay with reduced contrast"""
     fog = torch.ones_like(img) * fog_intensity
     foggy_img = img * (1 - fog_intensity) + fog
     return torch.clamp(foggy_img, 0., 1.)
 
-def simulate_rain(img, drop_length=20, drop_width=1, drop_count=20):
+def simulate_rain(img, drop_length=3, drop_width=2, drop_count=40):
     """Simulate rain by adding random streaks"""
     c, h, w = img.shape
     rain_img = img.clone()
@@ -81,7 +81,7 @@ def visualize_augmentations():
     
     # Basic augmentation transforms
     color_jitter = transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1)
-    gaussian_blur = transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))
+    gaussian_blur = transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))
     h_flip = transforms.RandomHorizontalFlip(p=1.0)  # Always flip for visualization
     
     # Frame extraction and augmentation
@@ -143,17 +143,17 @@ def visualize_augmentations():
         axes[1, 1].axis('off')
         
         # Noise
-        axes[1, 2].imshow(add_noise(frame, noise_factor=0.1).permute(1, 2, 0).numpy())
+        axes[1, 2].imshow(add_noise(frame).permute(1, 2, 0).numpy())
         axes[1, 2].set_title('Noise Added')
         axes[1, 2].axis('off')
         
         # Fog
-        axes[2, 0].imshow(add_fog(frame, fog_intensity=0.3).permute(1, 2, 0).numpy())
+        axes[2, 0].imshow(add_fog(frame).permute(1, 2, 0).numpy())
         axes[2, 0].set_title('Fog Effect')
         axes[2, 0].axis('off')
         
         # Rain
-        axes[2, 1].imshow(simulate_rain(frame, drop_length=20, drop_width=1, drop_count=30).permute(1, 2, 0).numpy())
+        axes[2, 1].imshow(simulate_rain(frame).permute(1, 2, 0).numpy())
         axes[2, 1].set_title('Rain Effect')
         axes[2, 1].axis('off')
         
@@ -167,9 +167,9 @@ def visualize_augmentations():
         if random.random() > 0.5:
             combined = h_flip(combined)
         if random.random() > 0.3:
-            combined = add_noise(combined, noise_factor=0.08)
+            combined = add_noise(combined)
         if random.random() > 0.3:
-            combined = add_fog(combined, fog_intensity=0.2)
+            combined = add_fog(combined)
         if random.random() > 0.2:
             combined = simulate_rain(combined, drop_count=random.randint(20, 40))
             

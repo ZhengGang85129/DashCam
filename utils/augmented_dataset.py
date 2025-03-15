@@ -53,15 +53,15 @@ class AugmentedVideoDataset(Dataset):
                 transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1)
             ], p=0.5),
             transforms.RandomApply([
-                transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0))
+                transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))
             ], p=0.3),
             transforms.RandomHorizontalFlip(p=0.5),
             # Simulating fog/noise
             transforms.RandomApply([
-                transforms.Lambda(lambda x: self._add_noise(x, noise_factor=0.1))
+                transforms.Lambda(lambda x: self._add_noise(x, noise_factor=0.02))
             ], p=0.3),
             transforms.RandomApply([
-                transforms.Lambda(lambda x: self._add_fog(x, fog_intensity=0.3))
+                transforms.Lambda(lambda x: self._add_fog(x, fog_intensity=0.15))
             ], p=0.3),
         ])
         
@@ -135,8 +135,7 @@ class AugmentedVideoDataset(Dataset):
                 if apply_rain_to_video:
                     frame_tensor = simulate_rain(
                         frame_tensor, 
-                        drop_length=random.randint(10, 30),
-                        drop_width=random.randint(1, 2),
+                        drop_length=random.randint(1, 5),
                         drop_count=random.randint(10, 40)
                     )
                 
