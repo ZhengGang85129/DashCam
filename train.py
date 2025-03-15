@@ -67,6 +67,14 @@ def train_parse_args() -> argparse.ArgumentParser:
                                 Valid options: "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect"
                                 If specified, augmentation is enabled.
                                 Example: --augmentation_types fog noise horizontal_flip''')
+    parser.add_argument('--augmentation_prob',
+                        type=float,
+                        default=0.25,
+                        help='Probability of applying augmentation to a video (default: 0.25)')
+    parser.add_argument('--horizontal_flip_prob',
+                        type=float,
+                        default=0.5,
+                        help='Probability of flipping a video horizontally (default: 0.5)')
 
     _args = parser.parse_args()
     return _args
@@ -101,6 +109,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataloader(torch.utils.data.DataLoader)
         val_dataloader(torch.utils.data.DataLoader)
     '''
+    # Check if augmentation_types is provided - this means use augmentation
     if args.augmentation_types is not None and len(args.augmentation_types) > 0:
         # Configure augmentations based on augmentation_types argument
         aug_config = {
@@ -112,17 +121,12 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
             'rain_effect': 'rain_effect' in args.augmentation_types,
         }
 
-        # Default probabilities - could be exposed as command line arguments in the future
-        aug_prob = {
-            'fog': 0.3,
-            'noise': 0.3,
-            'gaussian_blur': 0.3,
-            'color_jitter': 0.3,
-            'horizontal_flip': 0.5,
-            'rain_effect': 0.2,
-        }
-
-        logger.info(f"Using AugmentedVideoDataset with augmentations: {[k for k, v in aug_config.items() if v]}")
+        # Log which augmentations will be used
+        enabled_effects = [k for k, v in aug_config.items() if v]
+        logger.info(f"Using AugmentedVideoDataset with augmentations: {enabled_effects}")
+        logger.info(f"Global augmentation probability: {args.augmentation_prob}")
+        if aug_config['horizontal_flip']:
+            logger.info(f"Horizontal flip probability: {args.horizontal_flip_prob}")
 
         # Use the AugmentedVideoDataset for training
         train_dataset = AugmentedVideoDataset(
@@ -130,7 +134,8 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
             csv_file='./dataset/train_videos.csv',
             num_frames=16,  # Match the original implementation
             augmentation_config=aug_config,
-            augmentation_prob=aug_prob
+            global_augment_prob=args.augmentation_prob,
+            horizontal_flip_prob=args.horizontal_flip_prob
         )
     else:
         # Use the standard dataset if augmentation is disabled
@@ -344,9 +349,9 @@ def main():
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")
-
     if args.augmentation_types:
         print(f"Using augmentation types: {args.augmentation_types}")
+        print(f"Global augmentation probability: {args.augmentation_prob}")
 
     BATCH_SIZE = args.batch_size
     PRINT_FREQ = 4
@@ -394,11 +399,13 @@ def main():
     if args.augmentation_types:
         # Create a shorter tag for augmentation types
         aug_types_str = '_'.join([t[:3] for t in sorted(args.augmentation_types)])
-        aug_tag = f'_aug_{aug_types_str}'
+        aug_tag = f'_aug{args.augmentation_prob:.2f}_{aug_types_str}'
     else:
         aug_tag = ''
 
     tag = f'bs{BATCH_SIZE}_lr{LR_RATE}{aug_tag}'
+
+    # Log the tag being used
     logger.info(f"Using tag: {tag}")
 
     iterations_per_epoch = len(train_dataloader.dataset) // train_dataloader.batch_size + int(len(train_dataloader.dataset) % train_dataloader.batch_size != 0)
