@@ -7,30 +7,44 @@ import numpy as np
 import math
 import os
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Optional, Union
 
 class AugmentedVideoDataset(Dataset):
     """
-    Enhanced dataset for loading video files with data augmentation techniques.
+    Enhanced dataset for loading video files with configurable data augmentation techniques.
+    
+    This dataset allows for fine-grained control over different augmentation methods,
+    with individual toggles and probability settings for each augmentation type.
+    
+    Supported augmentations:
+    - Fog effect: Simulates foggy conditions by adding a bright overlay
+    - Noise: Adds random noise to simulate poor camera conditions
+    - Gaussian blur: Blurs the image to simulate focus issues
+    - Color jitter: Adjusts brightness, contrast, saturation, and hue
+    - Horizontal flip: Mirrors the image horizontally
+    - Rain effect: Simulates rain drops in video frames
     """
     def __init__(
         self,
         root_dir: str = "./dataset/train",
         csv_file: str = './dataset/train.csv',
         num_frames: int = 16,
-        augmentation_config: dict = None,
-        augmentation_prob: dict = None,
+        augmentation_config: Optional[Dict[str, bool]] = None,
+        augmentation_prob: Optional[Dict[str, float]] = None,
     ):
         """
         Initialize the augmented video dataset.
+        
         Args:
             root_dir (str): Directory containing the video files
             csv_file (str): Path to CSV file with video metadata
             num_frames (int): Number of frames to sample from each video
-            augmentation_config (dict): Bolleans to enable apply augmentation to video
-            augmentation_prob (dict): Probabilities to apply augmentation to video
+            augmentation_config (dict): Booleans to enable specific augmentations
+                Supported keys: 'fog', 'noise', 'gaussian_blur', 'color_jitter', 
+                                'horizontal_flip', 'rain_effect'
+            augmentation_prob (dict): Probabilities to apply each augmentation
+                Values should be between 0.0 and 1.0
         """
-
         # Default configuration (no augmentation)
         self.aug_config = {
             'fog': False,
@@ -41,6 +55,7 @@ class AugmentedVideoDataset(Dataset):
             'rain_effect': False,
         }
 
+        # Default probabilities
         self.aug_prob = {
             'fog': 0.3,
             'noise': 0.3,
@@ -52,11 +67,17 @@ class AugmentedVideoDataset(Dataset):
 
         # Override with user configuration if provided
         if augmentation_config:
-            self.aug_config = augmentation_config
+            self._validate_config(augmentation_config)
+            for key, value in augmentation_config.items():
+                if key in self.aug_config:
+                    self.aug_config[key] = value
 
         if augmentation_prob:
-            self.aug_prob = augmentation_prob
-
+            self._validate_probabilities(augmentation_prob)
+            for key, value in augmentation_prob.items():
+                if key in self.aug_prob:
+                    self.aug_prob[key] = value
+        
         self.root_dir = root_dir
         self.data_frame = pd.read_csv(csv_file)
         self.video_indices = self.data_frame['id'].to_list() 
@@ -72,36 +93,115 @@ class AugmentedVideoDataset(Dataset):
                                 std=[0.22803, 0.22145, 0.216989])
         ])
         
-        # Basic augmentation transforms
-        self.apply_fog             = transforms.RandomApply([ transforms.Lambda(lambda x: self._add_fog(x, fog_intensity=0.15)) ]            , p=self.aug_prob['fog'])
-        self.apply_noise           = transforms.RandomApply([ transforms.Lambda(lambda x: self._add_noise(x, noise_factor=0.02)) ]           , p=self.aug_prob['noise'])
-        self.apply_gaussian_blur   = transforms.RandomApply([ transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0)) ]                     , p=self.aug_prob['gaussian_blur'])
-        self.apply_color_jitter    = transforms.RandomApply([ transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1) ], p=self.aug_prob['color_jitter'])
-        self.apply_horizontal_flip = transforms.RandomHorizontalFlip(p=self.aug_prob['horizontal_flip'])
+        # Individual augmentation transforms
+        self.apply_fog = transforms.RandomApply(
+            [transforms.Lambda(lambda x: self._add_fog(x, fog_intensity=0.15))], 
+            p=self.aug_prob['fog']
+        )
+        self.apply_noise = transforms.RandomApply(
+            [transforms.Lambda(lambda x: self._add_noise(x, noise_factor=0.02))], 
+            p=self.aug_prob['noise']
+        )
+        self.apply_gaussian_blur = transforms.RandomApply(
+            [transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0))], 
+            p=self.aug_prob['gaussian_blur']
+        )
+        self.apply_color_jitter = transforms.RandomApply(
+            [transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.1)], 
+            p=self.aug_prob['color_jitter']
+        )
+        self.apply_horizontal_flip = transforms.RandomHorizontalFlip(
+            p=self.aug_prob['horizontal_flip']
+        )
         
-        # Load videos
+        # Load videos from directory
         for Index in self.video_indices:
             file = os.path.join(root_dir, f'{Index:05d}.mp4')
             if os.path.isfile(file):
-                self.video_files[global_index] = (file, self.data_frame[self.data_frame['id'] == Index]['target'].item())
+                self.video_files[global_index] = (
+                    file, 
+                    self.data_frame[self.data_frame['id'] == Index]['target'].item()
+                )
                 global_index += 1 
                 
         if not self.video_files:
             raise RuntimeError(f"No MP4 files found in {root_dir}")
 
-    def _add_noise(self, img, noise_factor=0.1):
-        """Add random noise to an image tensor"""
+    def _validate_config(self, config: Dict[str, bool]) -> None:
+        """
+        Validate the augmentation configuration dictionary.
+        
+        Args:
+            config (Dict[str, bool]): Configuration dictionary to validate
+        
+        Raises:
+            ValueError: If any keys are unknown or values are not boolean
+        """
+        valid_keys = set(self.aug_config.keys())
+        for key, value in config.items():
+            if key not in valid_keys:
+                raise ValueError(f"Unknown augmentation type: {key}. "
+                                f"Valid options are: {', '.join(valid_keys)}")
+            if not isinstance(value, bool):
+                raise ValueError(f"Augmentation config values must be boolean, got {type(value)} for {key}")
+
+    def _validate_probabilities(self, probs: Dict[str, float]) -> None:
+        """
+        Validate the augmentation probability dictionary.
+        
+        Args:
+            probs (Dict[str, float]): Probability dictionary to validate
+        
+        Raises:
+            ValueError: If any keys are unknown or values are not between 0 and 1
+        """
+        valid_keys = set(self.aug_prob.keys())
+        for key, value in probs.items():
+            if key not in valid_keys:
+                raise ValueError(f"Unknown augmentation type: {key}. "
+                                f"Valid options are: {', '.join(valid_keys)}")
+            if not isinstance(value, (float, int)):
+                raise ValueError(f"Probability values must be numeric, got {type(value)} for {key}")
+            if value < 0 or value > 1:
+                raise ValueError(f"Probability values must be between 0 and 1, got {value} for {key}")
+
+    def _add_noise(self, img: torch.Tensor, noise_factor: float = 0.1) -> torch.Tensor:
+        """
+        Add random noise to an image tensor.
+        
+        Args:
+            img (torch.Tensor): Input image tensor of shape [C, H, W]
+            noise_factor (float): Intensity of the noise to add
+        
+        Returns:
+            torch.Tensor: Noisy image tensor
+        """
         noise = torch.randn_like(img) * noise_factor
         noisy_img = img + noise
         return torch.clamp(noisy_img, 0., 1.)
     
-    def _add_fog(self, img, fog_intensity=0.3):
-        """Simulate fog effect by adding a bright overlay with reduced contrast"""
+    def _add_fog(self, img: torch.Tensor, fog_intensity: float = 0.3) -> torch.Tensor:
+        """
+        Simulate fog effect by adding a bright overlay with reduced contrast.
+        
+        Args:
+            img (torch.Tensor): Input image tensor of shape [C, H, W]
+            fog_intensity (float): Intensity of the fog effect (0-1)
+        
+        Returns:
+            torch.Tensor: Image tensor with fog effect
+        """
         fog = torch.ones_like(img) * fog_intensity
         foggy_img = img * (1 - fog_intensity) + fog
         return torch.clamp(foggy_img, 0., 1.)
 
     def __len__(self) -> int:
+        """
+        Return the number of videos in the dataset.
+        
+        Returns:
+            int: Dataset length
+        """
         return len(self.video_files)
 
     def __load_video(self, video_path: str) -> List[torch.Tensor]:
@@ -117,13 +217,13 @@ class AugmentedVideoDataset(Dataset):
         video = cv2.VideoCapture(video_path)
         total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
             
-        # Calculate interval
+        # Calculate interval for frame sampling
         interval = math.floor(total_frames / self.num_frames)
 
         frames_saved = 0
         frames = []
         
-        # Determine if we'll add rain effect to the entire video
+        # Determine if we'll use rain effects to the entire video
         apply_rain_to_video = self.aug_config['rain_effect'] and random.random() < self.aug_prob['rain_effect']
         
         for i in range(0, total_frames, interval):
@@ -135,7 +235,7 @@ class AugmentedVideoDataset(Dataset):
             # Convert to tensor first using base transforms
             frame_tensor = self.base_transforms(frame.astype(np.float32) / 255.0)
             
-            # Apply basic augmentations during training
+            # Apply augmentations according to configuration
             if self.aug_config['fog']:
                 frame_tensor = self.apply_fog(frame_tensor)
             if self.aug_config['noise']:
@@ -163,25 +263,33 @@ class AugmentedVideoDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Get a video clip from the dataset.
+        Get a video clip and its label from the dataset.
         
         Args:
             idx (int): Index of video file
             
         Returns:
-            torch.Tensor: Tensor of shape (channels, n_frames, height, width)
-            int: Target label
+            Tuple[torch.Tensor, torch.Tensor]: 
+                - Video tensor of shape (channels, n_frames, height, width)
+                - Target label tensor
         """
         video_path, target = self.video_files[idx]
         frames = self.__load_video(video_path)
         # Stack frames into a single tensor
-        
         return torch.stack(frames, dim=1), target
 
-def simulate_rain(img, drop_length=20, drop_width=1, drop_count=20):
+def simulate_rain(img: torch.Tensor, drop_length: int = 20, drop_width: int = 1, drop_count: int = 20) -> torch.Tensor:
     """
-    Simulate rain by adding random streaks.
-    This is a simple approximation for demonstration.
+    Simulate rain by adding random streaks to an image.
+    
+    Args:
+        img (torch.Tensor): Input image tensor of shape [C, H, W]
+        drop_length (int): Length of rain drops
+        drop_width (int): Width of rain drops
+        drop_count (int): Number of rain drops to add
+    
+    Returns:
+        torch.Tensor: Image tensor with rain effect
     """
     c, h, w = img.shape
     rain_img = img.clone()
