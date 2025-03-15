@@ -130,7 +130,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
     for mini_batch_index, data in enumerate(train_loader):
         data_time.update(time.time() - start)
         X, target = data
-        X = X.to(device)
+        X = X.to(device) # X.dim = (batch_size, n_frames, n_channles, H, W)
         target = target.to(device)
         with autocast(device_type = device.type):
             output = model(X)
@@ -216,20 +216,25 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
         for mini_batch_index, data in enumerate(val_loader):
             data_time.update(time.time() - start)
             X, target = data
-            X = X.to(device)
+            X = X.to(device) #X.dim = (batch_size, n_frames, n_channles, H, W)
             target = target.to(device)
-            batch_size, num_crops, T, C, H, W = X.shape
-            all_crops = X.view(-1, T, C, H, W)
+            
+            if X.dim == 6:
+                batch_size, num_crops, T, C, H, W = X.shape
+                all_crops = X.view(-1, T, C, H, W)
 
-            with autocast(device_type = device.type): 
-                outputs = model(all_crops)
-                outputs = outputs.view(batch_size, num_crops, -1)
-                avg_outputs = outputs.mean(dim=1)
-                target = target.to(device)
-                loss = criterion(avg_outputs, target) 
-
+                with autocast(device_type = device.type): 
+                    outputs = model(all_crops)
+                    outputs = outputs.view(batch_size, num_crops, -1)
+                    outputs = outputs.mean(dim=1)
+                    loss = criterion(outputs, target) 
+            else:
+                with autocast(device_type = device.type): 
+                    outputs = model(X)
+                    loss = criterion(outputs, target) 
+                
             # Positive and Negative cases counting
-            positive_probs = F.softmax(avg_outputs, dim=-1)[:, 1] 
+            positive_probs = F.softmax(outputs, dim=-1)[:, 1] 
             positive = (positive_probs >= 0.5)
             positive.requires_grad = False
             negative =  ~positive
