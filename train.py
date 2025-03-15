@@ -50,13 +50,12 @@ def train_parse_args() -> argparse.ArgumentParser:
                         help='number of workers (default: 4)')
 
     # Add augmentation arguments
-    parser.add_argument('--use_augmentation',
-                        action='store_true',
-                        help='enable data augmentation')
     parser.add_argument('--augmentation_types',
                         nargs='+',
-                        default=['fog', 'noise', 'gaussian_blur', 'color_jitter', 'horizontal_flip'],
-                        help='List of augmentation types to use')
+                        help='''List of augmentation types to use.
+                                Valid options: "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect"
+                                If specified, augmentation is enabled.
+                                Example: --augmentation_types fog noise horizontal_flip''')
 
     _args = parser.parse_args()
     return _args
@@ -91,7 +90,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataloader(torch.utils.data.DataLoader)
         val_dataloader(torch.utils.data.DataLoader)
     '''
-    if args.use_augmentation:
+    if args.augmentation_types is not None and len(args.augmentation_types) > 0:
         # Configure augmentations based on augmentation_types argument
         aug_config = {
             'fog': 'fog' in args.augmentation_types,
@@ -326,14 +325,15 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, USEAUG
     global num_frames, aug_config, aug_prob
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")
-    if args.use_augmentation:
+
+    if augmentation_types:
         print(f"Using augmentation types: {args.augmentation_types}")
 
     BATCH_SIZE = args.batch_size
@@ -343,6 +343,7 @@ def main():
     DEBUG = args.debug # debug mode if --debug is added
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
+    USEAUG = args.augmentation_types is not None
     #DECAY_NFRAME = 20
 
     set_seed(123)
@@ -374,7 +375,7 @@ def main():
     os.makedirs(args.model_dir, exist_ok = True) # save model parameters under this folder
     os.makedirs(args.monitor_dir, exist_ok = True) # save training details under this folder
 
-    aug_tag = '_aug' if args.use_augmentation else ''
+    aug_tag = '_aug' if USEAUG else ''
     tag = f'bs{BATCH_SIZE}_lr{LR_RATE}{aug_tag}'
 
     iterations_per_epoch = len(train_dataloader.dataset) // train_dataloader.batch_size + int(len(train_dataloader.dataset) % train_dataloader.batch_size != 0)

@@ -1,30 +1,27 @@
 #!/bin/bash
 batch_size=$1
 learning_rate=$2
-aug_mode=$3
+aug_types=$3
 workspce="/eos/user/y/ykao/SWAN_projects/kaggle/DashCam" # FIXME
+monitor_dir="/eos/user/y/ykao/www/kaggle/20250315" # FIXME
 
 nvidia-smi
 eval "$(conda shell.bash hook)"
 conda activate dashcam
 cd ${workspce}
 
-# Set up augmentation arguments based on aug_mode
-# 0: No augmentation
-# 1: Basic augmentation only
-# 2: Basic + advanced augmentation
-aug_args=""
-if [ "$aug_mode" -eq "1" ]; then
-    aug_args="--use_augmentation"
-elif [ "$aug_mode" -eq "2" ]; then
-    aug_args="--use_augmentation --use_advanced_augmentation"
+# Set up augmentation arguments
+if [ -z "$aug_types" ]; then
+    # No augmentation if aug_types is empty
+    python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} --monitor_dir ${monitor_dir}
+else
+    # Convert string to array of args for compatibility with nargs='+'
+    read -ra aug_array <<< "$aug_types"
+    aug_args=""
+    for type in "${aug_array[@]}"; do
+        aug_args+=" $type"
+    done
+
+    # Only use --augmentation_types, no need for --use_augmentation
+    python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} --monitor_dir ${monitor_dir} --augmentation_types${aug_args}
 fi
-
-# Run training with the specified parameters
-python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} ${aug_args}
-
-#--------------------------------------------------
-# commands to use customized directory
-#--------------------------------------------------
-# monitor_dir="/eos/user/y/ykao/www/kaggle/20250228"
-# python3 train.py --batch_size ${batch_size} --learning_rate ${learning_rate} --monitor_dir ${monitor_dir}

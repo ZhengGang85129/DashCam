@@ -1,7 +1,7 @@
 executable              = train.sh
-arguments               = $(batch_size) $(learning_rate) $(aug_mode)
-output                  = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_mode).$(ClusterId).$(ProcId).out
-error                   = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_mode).$(ClusterId).$(ProcId).err
+arguments               = $(batch_size) $(learning_rate) "$(aug_types)"
+output                  = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_label).$(ClusterId).$(ProcId).out
+error                   = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_label).$(ClusterId).$(ProcId).err
 log                     = matrix.$(ClusterId).log
 when_to_transfer_output = ON_EXIT
 request_GPUs = 1
@@ -9,8 +9,14 @@ request_CPUs = 12
 +JobFlavour = "testmatch"
 
 # Create a queue for each combination
-queue batch_size, learning_rate, aug_mode from (
-   10 0.0001 0
-   10 0.0001 1
-   10 0.0001 2
+queue batch_size, learning_rate, aug_label, aug_types from (
+   10 0.0001 none ""
+   10 0.0001 fog "fog"
+   10 0.0001 noise "noise"
+   10 0.0001 gaussian_blur "gaussian_blur"
+   10 0.0001 color_jitter "color_jitter"
+   10 0.0001 horizontal_flip "horizontal_flip"
+   10 0.0001 rain_effect "rain_effect"
+   10 0.0001 noBlur "color_jitter horizontal_flip rain_effect"
+   10 0.0001 all "fog noise gaussian_blur color_jitter horizontal_flip rain_effect"
 )
