@@ -82,7 +82,7 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
         val_dataloader(torch.utils.data.DataLoader)
     ''' 
     train_dataset = VideoTo3DImageDataset(
-        root_dir="./dataset/train/",
+        root_dir="./dataset/train/extracted",
         csv_file = './dataset/train_videos.csv',
     )
     if DEBUG:
@@ -97,7 +97,7 @@ def get_dataloaders(val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader
     
     
     val_dataset = VideoTo3DImageDataset(
-        root_dir="./dataset/train",
+        root_dir="./dataset/train/extracted",
         csv_file = './dataset/validation_videos.csv',
         mode = 'validation'
     )
