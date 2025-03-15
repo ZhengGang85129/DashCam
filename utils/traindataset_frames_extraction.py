@@ -48,7 +48,7 @@ def extract_clips(cap: cv2.VideoCapture, time_of_event:float, output_path:str, w
 def pick(Index: int, dataframe: pd.DataFrame)-> Tuple[str, float]:
 
     video_path = f'./dataset/train/{Index:05d}.mp4' 
-    time_of_event = dataframe[dataframe['id'] == Index]["time_of_event"].item()
+    time_of_event = dataframe[dataframe['id'] == Index]["time_of_alert"].item()
     
     return video_path, time_of_event 
 
@@ -76,7 +76,7 @@ def get_video_info(video_path: str) -> Dict[str, Union[float, int, str, cv2.Vide
 def main():
     df = pd.read_csv('dataset/train.csv')
     
-    clip =  partial(extract_clips, last_nframes = 10, nframes = 100) 
+    clip =  partial(extract_clips, last_nframes = 0, nframes = 150) 
     output_dir = 'dataset/train/extracted'
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)  
