@@ -28,6 +28,7 @@ from torch.amp import autocast, GradScaler
 from utils.optim import get_optimizer
 
 
+
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training')
     parser.add_argument('--monitor_dir',
@@ -48,6 +49,7 @@ def train_parse_args() -> argparse.ArgumentParser:
                         type=int,
                         default = 4,
                         help='number of workers (default: 4)')
+
     parser.add_argument('--model_type', 
                         type=str, 
                         default = 'baseline_model',
@@ -61,6 +63,7 @@ def train_parse_args() -> argparse.ArgumentParser:
     parser.add_argument('--use_augmentation',
                         action='store_true',
                         help='enable data augmentation')
+
     parser.add_argument('--augmentation_types',
                         nargs='+',
                         help='''List of augmentation types to use.
@@ -76,16 +79,7 @@ def train_parse_args() -> argparse.ArgumentParser:
                         default=0.5,
                         help='Probability of flipping a video horizontally (default: 0.5)')
 
-    parser.add_argument('--model_type', 
-                        type=str, 
-                        default = 'baseline_model',
-                        help='type of model (default: baseline_model)',
-                        choices = ['timesformer', 'baseline_model', 'dsa_rnn']
-                        )
-    parser.add_argument('--optim', type = str,
-                        default = 'sgd',
-                        help = 'type of optimizer (default: sgd)'
-                        ) 
+
     _args = parser.parse_args()
     return _args
 
@@ -179,13 +173,24 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         root_dir="./dataset/train",
         csv_file='./dataset/validation_videos.csv',
         mode = 'validation'
+
     )
-    
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4, pin_memory = True) 
+
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True
+
+    )
+
     return train_loader, val_loader
+
 
 def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int, optimizer: torch.optim.Optimizer, scaler: GradScaler) -> Dict[str, float]:
     
+
     model.train()
 
     batch_time = AverageMeter()
@@ -211,6 +216,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X, target = data
         X = X.to(device) # X.dim = (batch_size, n_frames, n_channles, H, W)
         target = target.to(device)
+
         with autocast(device_type = device.type):
             output = model(X)
             loss = criterion(output, target) 
@@ -219,6 +225,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         scaler.scale(loss).backward() # backward and optimize with scaler 
         scaler.step(optimizer)
         scaler.update()
+
         # Positive and Negative cases counting
         positive_probs = F.softmax(output, dim=-1)[:, 1]
         positive = (positive_probs >= 0.5)
@@ -269,7 +276,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
 
 
 def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int)-> Dict[str, float]:
-    
+
     model.eval()
 
     batch_time = AverageMeter()
@@ -296,6 +303,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device) #X.dim = (batch_size, n_frames, n_channles, H, W)
             target = target.to(device)
+
             
             with autocast(device_type = device.type): 
                 outputs = model(X)
@@ -303,6 +311,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
                 
             # Positive and Negative cases counting
             positive_probs = F.softmax(outputs, dim=-1)[:, 1] 
+
             positive = (positive_probs >= 0.5)
             positive.requires_grad = False
             negative =  ~positive
@@ -374,10 +383,12 @@ def main():
 
     logger.info('Set-up model')
     logger.info("=> creating model")
+
     
     
     model = get_model(args.model_type)
      
+
     model.to(device)
 
     np = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -386,6 +397,7 @@ def main():
     print_trainable_parameters(model, logger = logger)
     Loss_fn = nn.CrossEntropyLoss()
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
+
     
     optimizer = get_optimizer(name = args.optim)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     scaler = GradScaler() #change the loss to mixed-precision to save memory
@@ -393,6 +405,7 @@ def main():
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
     scaler = GradScaler() #change the loss to mixed-precision to save memory
     
+
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}')
     logger.info(f'Load dataset...')
