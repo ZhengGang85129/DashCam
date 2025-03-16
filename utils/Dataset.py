@@ -199,13 +199,14 @@ class VideoDataset(Dataset):
 class VideoTo3DImageDataset(Dataset):
     """
     Custom dataset for loading video files from a directory.
+    This Dataset is dedicated for validation and inference dataset.
     """
     def __init__(
         self,
         root_dir: str = "./dataset/train",
-        csv_file: str = './dataset/train.csv',
+        csv_file: str = './dataset/validation.csv',
         num_frames: int = 16,
-        mode: str = 'train',
+        mode: str = 'validation',
         strategy: str = 'default'
         #transform: Optional[transforms.Compose] = None,
     ):
@@ -225,43 +226,18 @@ class VideoTo3DImageDataset(Dataset):
         self.num_frames = num_frames 
         self.mode = mode
         
-        if strategy == 'default':
+        if mode == 'validation': 
             self.transforms = transforms.Compose([
                 transforms.ToTensor(),  
                 transforms.Resize(size = (128, 171)),
                 transforms.Normalize(mean = [0.43216, 0.394666, 0.37645], std = [0.22803, 0.22145, 0.216989]),
+                transforms.CenterCrop((112, 112))
             ])
-        else:
-            self.transforms = transforms.Compose([
-                transforms.ToTensor(),  
-            ])
-        
-        if self.mode == 'train':
-            if strategy == 'default':
-                self.transforms_train = transforms.Compose([
-                    transforms.RandomCrop((112, 112)), #Resize the 720 x 1280 -> 112 x 112
-                ]) 
-            else:    
-                self.transforms_train = transforms.Compose([
-                    RandomShortestSize(min_size = 128, max_size = 160),
-                    transforms.RandomCrop((112, 112)), #Resize the 720 x 1280 -> 112 x 112
-                ]) 
-        elif self.mode == 'validation' or self.mode == 'inference':
-            if strategy == 'default':
-                self.transforms_eval = transforms.Compose([
-                    transforms.CenterCrop((112, 112))
-                ])
-            else:
-                self.transforms_eval = transforms.Compose([
-                    MultipleRandomCrop(crop_size = (112, 112), num_crops = 3),
-                ])
-        else:
-            raise ValueError(f'Mode: {self.mode} does not exist.')
          
         for Index in self.video_indices:
             file = os.path.join(root_dir, f'{Index:05d}.mp4')
             if os.path.isfile(file):
-                if self.mode == 'train' or self.mode == 'validation':
+                if self.mode == 'validation':
                     self.video_files[global_index] = (file, self.data_frame[self.data_frame['id'] == Index]['target'].item())
                 else:
                     self.video_files[global_index] = (file, Index)
@@ -298,7 +274,9 @@ class VideoTo3DImageDataset(Dataset):
             if not success:
                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(self.transforms(frame.astype(np.float32) / 255.0))
+            frame = frame.astype(np.float32) / 255.0
+            frame = self.transforms(frame) if self.mode == 'validation' else frame
+            frames.append(frame)
             frames_saved += 1
             if frames_saved >= self.num_frames:
                 break
@@ -317,23 +295,15 @@ class VideoTo3DImageDataset(Dataset):
             torch.Tensor: Tensor of shape (n_frames, channels, height, width)
         """
         # Stack frames into a single tensor
-        if self.mode == 'train':
-            video_path,  target = self.video_files[idx]
-            frames = self.__load_video(video_path)
-            frames = torch.stack(frames, dim = 1).permute(1, 0, 2, 3)
-            frames = self.transforms_train(frames)
-            return frames , target
-        elif self.mode == 'validation':
+        if self.mode == 'validation':
             video_path, target = self.video_files[idx]
             frames = self.__load_video(video_path)
-            frames = torch.stack(frames, 1).permute(1, 0, 2, 3)
-            frames = self.transforms_eval(frames) # (Batch size, n_crops, n_Frames, n_channels, Height, Width)
+            frames = torch.stack(frames, 1).permute(1, 0, 2, 3) 
             return frames, target
         else:
             video_path, id = self.video_files[idx]
             frames = self.__load_video(video_path)
             frames = torch.stack(frames, 1).permute(1, 0, 2, 3)
-            frames = self.transforms_eval(frames) # (Batch size, n_crops, n_Frames, n_channels, Height, Width)
             return frames, id
             
 
