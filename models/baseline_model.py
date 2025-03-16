@@ -11,25 +11,15 @@ class baseline_model(nn.Module):
         super(baseline_model, self).__init__()
         self.model = r3d_18(weights = R3D_18_Weights.DEFAULT)
         num_features = self.model.fc.in_features
-        self.model.fc = nn.Sequential(
-            nn.Linear(num_features, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.BatchNorm1d(64),
-            nn.ReLU(),
-            #nn.Dropout(p = 0.1),
-            nn.Linear(64, 2)
-        )
+        self.model.fc = nn.Linear(num_features, 2)
+        #for name, param in self.model.named_parameters():
+        #    if "fc" not in name:
+        #        param.requires_grad = False
         self.__init_weight()
-        for name, param in self.model.named_parameters():
-            if "fc" not in name:
-                param.requires_grad = False
     
     def __init_weight(self,)->None:
         for m in self.model.fc.modules():
             if isinstance(m, nn.Linear):
-                # Use Kaiming/He initialization for ReLU activations
                 nn.init.xavier_uniform_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
