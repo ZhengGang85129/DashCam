@@ -71,9 +71,10 @@ class AugmentedVideoDataset(Dataset):
         # Basic transforms that are always applied
         self.base_transforms = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((112, 112)),
+            transforms.Resize((128, 171)), # Resize 720 x 1280p -> 128 x 171
             transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],
-                                std=[0.22803, 0.22145, 0.216989])
+                                std=[0.22803, 0.22145, 0.216989]),
+            transforms.RandomCrop((112, 112))
         ])
 
         # Load videos from directory
