@@ -1,5 +1,6 @@
 import torch
 import torch.optim.optimizer
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
 import logging
@@ -25,14 +26,12 @@ from utils.misc import parse_args
 from torch.amp import autocast, GradScaler
 from utils.optim import get_optimizer
 
+
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training') 
     parser.add_argument('--monitor_dir',
                         type=str, default='monitor_train',
                         help='directory to save monitoring plots (default: ./train)')
-    parser.add_argument('--model_dir',
-                        type=str, default='model_ckpt',
-                        help='directory to save monitoring plots (default: ./model_ckpt)')
     parser.add_argument('--learning_rate', 
                         type=float, 
                         default=0.01,
@@ -321,6 +320,7 @@ def main():
     optimizer = get_optimizer(name = args.optim)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     scaler = GradScaler() #change the loss to mixed-precision to save memory
     
+    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}') 
     logger.info(f'Load dataset...') 
@@ -350,6 +350,9 @@ def main():
         logger.info('Evaluating...')
         if not DEBUG:
             valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
+            scheduler.step(valid_metrics['mLoss'])
+            current_lr = optimizer.param_groups[0]['lr']
+            logger.info(f'Current learning rate: {current_lr:.8f}')
             
             if prev_loss > valid_metrics['mLoss']:
                 torch.save(model.state_dict(), f'{args.model_dir}/best_model_ckpt_{tag}.pt')
