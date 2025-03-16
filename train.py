@@ -82,7 +82,10 @@ def train_parse_args() -> argparse.ArgumentParser:
                         help='type of model (default: baseline_model)',
                         choices = ['timesformer', 'baseline_model', 'dsa_rnn']
                         )
-     
+    parser.add_argument('--optim', type = str,
+                        default = 'sgd',
+                        help = 'type of optimizer (default: sgd)'
+                        ) 
     _args = parser.parse_args()
     return _args
 
