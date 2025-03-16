@@ -296,11 +296,13 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device) #X.dim = (batch_size, n_frames, n_channles, H, W)
             target = target.to(device)
-            output = model(X)
-            loss = criterion(output, target) 
-
+            
+            with autocast(device_type = device.type): 
+                outputs = model(X)
+                loss = criterion(outputs, target) 
+                
             # Positive and Negative cases counting
-            positive_probs = F.softmax(output, dim=-1)[:, 1] 
+            positive_probs = F.softmax(outputs, dim=-1)[:, 1] 
             positive = (positive_probs >= 0.5)
             positive.requires_grad = False
             negative =  ~positive
