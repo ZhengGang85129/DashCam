@@ -15,6 +15,7 @@ pip3 install av
 pip3 install matplotlib 
 pip3 install torchsummary
 pip3 install pyyaml
+pip3 install timesformer-pytorch
 ```
 
 ## Dataset Download and Offline-preprocessing(must)
