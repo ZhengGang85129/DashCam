@@ -76,6 +76,13 @@ def train_parse_args() -> argparse.ArgumentParser:
                         default=0.5,
                         help='Probability of flipping a video horizontally (default: 0.5)')
 
+    parser.add_argument('--model_type', 
+                        type=str, 
+                        default = 'baseline_model',
+                        help='type of model (default: baseline_model)',
+                        choices = ['timesformer', 'baseline_model', 'dsa_rnn']
+                        )
+     
     _args = parser.parse_args()
     return _args
 
@@ -168,16 +175,10 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
     val_dataset = VideoTo3DImageDataset(
         root_dir="./dataset/train",
         csv_file='./dataset/validation_videos.csv',
+        mode = 'validation'
     )
-
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-        pin_memory=True
-    )
-
+    
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size = BATCH_SIZE, shuffle=False, num_workers = 4, pin_memory = True) 
     return train_loader, val_loader
 
 def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int, optimizer: torch.optim.Optimizer, scaler: GradScaler) -> Dict[str, float]:
