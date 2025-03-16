@@ -65,6 +65,13 @@ def train_parse_args() -> argparse.ArgumentParser:
                         default=0.5,
                         help='Probability of flipping a video horizontally (default: 0.5)')
 
+    # Sampling strategy
+    parser.add_argument('--sampling_strategy',
+                   type=str,
+                   default='alert_focused',
+                   choices=['alert_focused', 'random'],
+                   help='Strategy to sample video frames (default: alert_focused)')
+
     _args = parser.parse_args()
     return _args
 
@@ -121,6 +128,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataset = AugmentedVideoDataset(
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
+            sampling_mode=SAMPLING_MODE,
             num_frames=16,  # Match the original implementation
             augmentation_config=aug_config,
             global_augment_prob=args.augmentation_prob,
@@ -330,7 +338,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, SAMPLING_MODE
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
@@ -347,7 +355,7 @@ def main():
     DEBUG = args.debug # debug mode if --debug is added
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
-    #DECAY_NFRAME = 20
+    SAMPLING_MODE = args.sampling_strategy
 
     set_seed(123)
     logger = get_logger()
@@ -364,12 +372,12 @@ def main():
     logger.info("Trainable Architecture Components:")
     print_trainable_parameters(model, logger = logger)
     Loss_fn = nn.CrossEntropyLoss()
-    #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
 
     optimizer = torch.optim.RAdam([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}')
+    logger.info(f'Sampling strategy: {SAMPLING_MODE}')
     logger.info(f'Load dataset...')
 
     # Updated call to get_dataloaders to pass args
@@ -386,7 +394,7 @@ def main():
     else:
         aug_tag = ''
 
-    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}{aug_tag}'
+    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}_sm{SAMPLING_MODE}_{aug_tag}'
 
     # Log the tag being used
     logger.info(f"Using tag: {tag}")
