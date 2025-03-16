@@ -403,7 +403,6 @@ def main():
     scaler = GradScaler() #change the loss to mixed-precision to save memory
     
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
-    scaler = GradScaler() #change the loss to mixed-precision to save memory
     
 
     logger.info(f'{optimizer}')
