@@ -8,7 +8,7 @@ import math
 import os
 import random
 from typing import List, Tuple, Dict, Optional, Union
-from sampling_strategy import uniform_random_sampling, alert_focused_sampling
+from utils.sampling_strategy import uniform_random_sampling, alert_focused_sampling
 
 class AugmentedVideoDataset(Dataset):
     """
