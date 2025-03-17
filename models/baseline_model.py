@@ -18,6 +18,6 @@ class baseline_model(nn.Module):
         Return:
         y: [torch.Tensor, (batch_size, num_classes(2))]
         '''
-        
+        x = x.permute(0, 2, 1, 3, 4) 
         
         return self.model(x)
