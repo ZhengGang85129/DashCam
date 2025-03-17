@@ -23,7 +23,8 @@ from datetime import datetime
 from models.model import get_model
 from utils.misc import parse_args
 from utils.optim import get_optimizer
-
+from utils.loss import AnticipationLoss
+from torch.amp import autocast, GradScaler
 
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training')
@@ -209,10 +210,15 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X = X.to(device)
         target = target.to(device)
         optimizer.zero_grad()
-        output = model(X)
-        loss = criterion(output, target)
-        loss.backward()
-        optimizer.step()
+        with autocast():
+            output = model(X)
+            loss = criterion(output, target)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 10) # Gradient clip
+        
+        SCALER.scale(loss).backward()
+        SCALER.step(optimizer)
+        SCALER.update()
+        
 
         # Positive and Negative cases counting
         positive_probs = F.softmax(output, dim=-1)[:, 1]
@@ -291,8 +297,9 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device)
             target = target.to(device)
-            output = model(X)
-            loss = criterion(output, target)
+            with autocast():
+                output = model(X)
+                loss = criterion(output, target)
 
             # Positive and Negative cases counting
             positive_probs = F.softmax(output, dim=-1)[:, 1]
@@ -342,7 +349,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
@@ -382,6 +389,8 @@ def main():
     logger.info(f"Set up optimizer: {args.optimizer}")
     optimizer = get_optimizer(args.optimizer)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
+    SCALER = GradScaler()
+    
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}')
     logger.info(f'Load dataset...')
