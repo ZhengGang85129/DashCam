@@ -12,4 +12,12 @@ class baseline_model(nn.Module):
         self.model = r3d_18(weights = R3D_18_Weights.DEFAULT)
         self.model.fc = nn.Linear(self.model.fc.in_features, 2)  # Modify output layer for binary classification
     def forward(self, x:torch.Tensor)->torch.Tensor:
+        '''
+        Args:
+        x: [torch.Tensor, (batch_size, n_frames, n_channels, H, W)]
+        Return:
+        y: [torch.Tensor, (batch_size, num_classes(2))]
+        '''
+        
+        
         return self.model(x)
