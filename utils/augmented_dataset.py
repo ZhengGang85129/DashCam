@@ -8,6 +8,7 @@ import math
 import os
 import random
 from typing import List, Tuple, Dict, Optional, Union
+from utils.sampling_strategy import uniform_random_sampling, alert_focused_sampling
 
 class AugmentedVideoDataset(Dataset):
     """
@@ -23,10 +24,11 @@ class AugmentedVideoDataset(Dataset):
         self,
         root_dir: str = "./dataset/train",
         csv_file: str = './dataset/train.csv',
+        sampling_mode: str = 'alert_focused',
         num_frames: int = 16,
         augmentation_config: Optional[Dict[str, bool]] = None,
         global_augment_prob: float = 0.25,
-        horizontal_flip_prob: float = 0.5
+        horizontal_flip_prob: float = 0.5,
     ):
         """
         Initialize the augmented video dataset.
@@ -34,6 +36,8 @@ class AugmentedVideoDataset(Dataset):
         Args:
             root_dir (str): Directory containing the video files
             csv_file (str): Path to CSV file with video metadata
+            sampling_mode (str): Strategy to sample the video frames
+                Supported keys: 'alert_focused', 'random'
             num_frames (int): Number of frames to sample from each video
             augmentation_config (dict): Booleans to enable specific augmentations
                 Supported keys: 'fog', 'noise', 'gaussian_blur', 'color_jitter',
@@ -67,6 +71,7 @@ class AugmentedVideoDataset(Dataset):
         self.video_files = dict()
         global_index = 0
         self.num_frames = num_frames
+        self.sampling_mode = sampling_mode
 
         # Basic transforms that are always applied
         self.base_transforms = transforms.Compose([
@@ -80,9 +85,12 @@ class AugmentedVideoDataset(Dataset):
         for Index in self.video_indices:
             file = os.path.join(root_dir, f'{Index:05d}.mp4')
             if os.path.isfile(file):
+                data = self.data_frame[self.data_frame['id'] == Index]
+                target = data['target'].item()
+                time_of_alert = data['time_of_alert'].item() if target==1 else None
+                time_of_event = data['time_of_event'].item() if target==1 else None
                 self.video_files[global_index] = (
-                    file,
-                    self.data_frame[self.data_frame['id'] == Index]['target'].item()
+                    file, target, time_of_alert, time_of_event
                 )
                 global_index += 1
 
@@ -146,7 +154,7 @@ class AugmentedVideoDataset(Dataset):
         """
         return len(self.video_files)
 
-    def __load_video(self, video_path: str) -> List[torch.Tensor]:
+    def __load_video(self, video_path: str, time_of_alert: float, time_of_event: float) -> List[torch.Tensor]:
         """
         Load video file and return preprocessed frames.
 
@@ -157,6 +165,8 @@ class AugmentedVideoDataset(Dataset):
             List[torch.Tensor]: List of preprocessed frames
         """
         video = cv2.VideoCapture(video_path)
+        fps = video.get(cv2.CAP_PROP_FPS)
+        fps = fps if 1.<= fps <= 120. else 30. # prevent abnormal fps values
         total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
         # Calculate interval for frame sampling
@@ -225,7 +235,22 @@ class AugmentedVideoDataset(Dataset):
                 noise_factor = random.uniform(0.01, 0.03)
 
         # Load and process frames
-        for i in range(0, total_frames, interval):
+        if self.sampling_mode == 'alert_focused':
+            frame_indices = alert_focused_sampling(
+                total_frames=total_frames,
+                num_frames=self.num_frames,
+                time_of_event=time_of_event,
+                time_of_alert=time_of_alert,
+                fps=fps
+            )
+        else:  # uniform sampling
+            frame_indices = uniform_random_sampling(
+                total_frames=total_frames,
+                num_frames=self.num_frames,
+                fps=fps
+            )
+
+        for i in frame_indices:
             video.set(cv2.CAP_PROP_POS_FRAMES, i)
             success, frame = video.read()
             if not success:
@@ -280,8 +305,9 @@ class AugmentedVideoDataset(Dataset):
                 - Video tensor of shape (channels, n_frames, height, width)
                 - Target label tensor
         """
-        video_path, target = self.video_files[idx]
-        frames = self.__load_video(video_path)
+        video_path, target, time_of_alert, time_of_event = self.video_files[idx]
+        frames = self.__load_video(video_path, time_of_alert, time_of_event)
+
         # Stack frames into a single tensor
         return torch.stack(frames, dim=1), torch.tensor(target)
 

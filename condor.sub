@@ -1,5 +1,5 @@
 executable              = train.sh
-arguments               = $(batch_size) $(learning_rate) $(aug_types) $(aug_prob)
+arguments               = $(batch_size) $(learning_rate) $(aug_prob) $(aug_types)
 output                  = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_label)_p$(aug_prob).$(ClusterId).$(ProcId).out
 error                   = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_label)_p$(aug_prob).$(ClusterId).$(ProcId).err
 log                     = matrix.$(ClusterId).log
@@ -10,13 +10,17 @@ request_CPUs = 12
 
 # Create a queue for each combination
 queue batch_size, learning_rate, aug_prob, aug_label, aug_types from (
-   10 0.0001 0.25 none -
-   10 0.0001 0.25 fog fog
-   10 0.0001 0.25 noise noise
-   10 0.0001 0.25 gaussian_blur gaussian_blur
-   10 0.0001 0.25 color_jitter color_jitter
-   10 0.0001 0.25 horizontal_flip horizontal_flip
-   10 0.0001 0.25 rain_effect rain_effect
-   10 0.0001 0.25 noBlur color_jitter\ horizontal_flip\ rain_effect
-   10 0.0001 0.25 all fog\ noise\ gaussian_blur\ color_jitter\ horizontal_flip\ rain_effect
+   10 0.0001 0.15 all 'fog noise gaussian_blur color_jitter horizontal_flip rain_effect'
+   10 0.0001 0.25 all 'fog noise gaussian_blur color_jitter horizontal_flip rain_effect'
+   10 0.0001 0.35 all 'fog noise gaussian_blur color_jitter horizontal_flip rain_effect'
+   10 0.0001 0.50 all 'fog noise gaussian_blur color_jitter horizontal_flip rain_effect'
+   # 10 0.0001 0.25 none -
+   # 10 0.0001 0.25 fog fog
+   # 10 0.0001 0.25 noise noise
+   # 10 0.0001 0.25 gaussian_blur gaussian_blur
+   # 10 0.0001 0.25 color_jitter color_jitter
+   # 10 0.0001 0.25 horizontal_flip horizontal_flip
+   # 10 0.0001 0.25 rain_effect rain_effect
+   # 10 0.0001 0.25 noBlur 'color_jitter horizontal_flip rain_effect'
+   # 10 0.0001 0.25 all 'fog noise gaussian_blur color_jitter horizontal_flip rain_effect'
 )

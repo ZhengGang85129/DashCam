@@ -1,10 +1,10 @@
 #!/bin/bash
 batch_size=$1
 learning_rate=$2
-aug_types=$3
-aug_prob=$4 # Takes probability as a number (default: 0.25 if not provided)
+aug_prob=$3
+aug_types=$4
 workspce="/eos/user/y/ykao/SWAN_projects/kaggle/DashCam" # FIXME
-monitor_dir="/eos/user/y/ykao/www/kaggle/20250315" # FIXME
+monitor_dir="/eos/user/y/ykao/www/kaggle/20250316/sampling_strategy/" # FIXME
 
 nvidia-smi
 eval "$(conda shell.bash hook)"
