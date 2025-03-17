@@ -185,7 +185,7 @@ class VideoTo3DImageDataset(Dataset):
         frames = self.__load_video(video_path)
         # Stack frames into a single tensor
         
-        return torch.stack(frames, dim=1) , target
+        return torch.stack(frames, dim=1).permute(1, 0, 2, 3) , target
 
 class VideoTo3DImageDataset_Inference(Dataset):
     """
@@ -278,7 +278,7 @@ class VideoTo3DImageDataset_Inference(Dataset):
         frames = self.__load_video(video_path)
         # Stack frames into a single tensor
         
-        return torch.stack(frames, dim=1) , Index
+        return torch.stack(frames, dim=1).permute(1, 0, 2, 3) , Index
 # Example usage:
 if __name__ == "__main__":
     # Create dataset

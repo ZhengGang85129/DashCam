@@ -278,13 +278,13 @@ class AugmentedVideoDataset(Dataset):
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]:
-                - Video tensor of shape (channels, n_frames, height, width)
+                - Video tensor of shape (n_frames, channels, height, width)
                 - Target label tensor
         """
         video_path, target = self.video_files[idx]
         frames = self.__load_video(video_path)
         # Stack frames into a single tensor
-        return torch.stack(frames, dim=1), torch.tensor(target)
+        return torch.stack(frames, dim=1).permute(1, 0, 2, 3), torch.tensor(target)
 
 def simulate_rain(img: torch.Tensor, drop_length: int = 20, drop_width: int = 1,
                  drop_count: int = 20, seed: Optional[int] = None) -> torch.Tensor:
