@@ -398,7 +398,7 @@ def main():
     else:
         aug_tag = ''
 
-    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}_sm{SAMPLING_MODE}_{aug_tag}'
+    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}_mode{SAMPLING_MODE[:3].capitalize()}_{aug_tag}'
 
     # Log the tag being used
     logger.info(f"Using tag: {tag}")
