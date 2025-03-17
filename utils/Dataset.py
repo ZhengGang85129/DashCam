@@ -103,6 +103,7 @@ class VideoTo3DImageDataset(Dataset):
         root_dir: str = "./dataset/train",
         csv_file: str = './dataset/train.csv',
         num_frames: int = 16,
+        resize_shape: Tuple[int, int] = (112, 112)
         #transform: Optional[transforms.Compose] = None,
     ):
         """
@@ -121,7 +122,7 @@ class VideoTo3DImageDataset(Dataset):
         self.num_frames = num_frames 
         self.transforms = transforms.Compose([
             transforms.ToTensor(),  # Convert (H, W, C) to (C, H, W)
-            transforms.Resize((112, 112)), #Resize the 720 x 1280 -> 112 x 112
+            transforms.Resize(resize_shape), #Resize the 720 x 1280 -> 112 x 112
             transforms.Normalize(mean=[0.43216, 0.394666, 0.37645], std=[0.22803, 0.22145, 0.216989])
         ])
          
@@ -195,6 +196,7 @@ class VideoTo3DImageDataset_Inference(Dataset):
         root_dir: str = "./dataset/test",
         csv_file: str = './dataset/test.csv',
         num_frames: int = 16,
+        resize_shape: Tuple[int, int] = (112, 112)
         #transform: Optional[transforms.Compose] = None,
     ):
         """
@@ -213,7 +215,7 @@ class VideoTo3DImageDataset_Inference(Dataset):
         self.num_frames = num_frames 
         self.transforms = transforms.Compose([
             transforms.ToTensor(),  # Convert (H, W, C) to (C, H, W)
-            transforms.Resize((112, 112)), #Resize the 720 x 1280 -> 112 x 112
+            transforms.Resize(resize_shape), #Resize the 720 x 1280 -> 112 x 112
             transforms.Normalize(mean=[0.43216, 0.394666, 0.37645], std=[0.22803, 0.22145, 0.216989])
         ])
          

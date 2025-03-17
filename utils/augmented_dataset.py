@@ -24,6 +24,7 @@ class AugmentedVideoDataset(Dataset):
         root_dir: str = "./dataset/train",
         csv_file: str = './dataset/train.csv',
         num_frames: int = 16,
+        resize_shape: Tuple[int, int] = (112, 112),
         augmentation_config: Optional[Dict[str, bool]] = None,
         global_augment_prob: float = 0.25,
         horizontal_flip_prob: float = 0.5
@@ -71,7 +72,7 @@ class AugmentedVideoDataset(Dataset):
         # Basic transforms that are always applied
         self.base_transforms = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize((112, 112)),
+            transforms.Resize(resize_shape),
             transforms.Normalize(mean=[0.43216, 0.394666, 0.37645],
                                 std=[0.22803, 0.22145, 0.216989])
         ])
