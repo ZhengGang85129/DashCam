@@ -129,7 +129,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
             sampling_mode=SAMPLING_MODE,
-            num_frames=16,  # Match the original implementation
+            num_frames=16,
             augmentation_config=aug_config,
             global_augment_prob=args.augmentation_prob,
             horizontal_flip_prob=args.horizontal_flip_prob
@@ -162,9 +162,13 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         return train_loader, None
 
     # For validation, always use the standard dataset (no augmentation)
-    val_dataset = VideoTo3DImageDataset(
+    val_dataset = AugmentedVideoDataset(
         root_dir="./dataset/train",
         csv_file='./dataset/validation_videos.csv',
+        sampling_mode=SAMPLING_MODE,
+        num_frames=16,
+        global_augment_prob=0.0, # no augmentation
+        horizontal_flip_prob=0.0 # no horizontal flip
     )
 
     val_loader = torch.utils.data.DataLoader(
