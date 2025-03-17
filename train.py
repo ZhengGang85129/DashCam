@@ -1,5 +1,4 @@
 import torch
-import torch.optim.optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
@@ -21,11 +20,9 @@ import argparse
 from torchvision import transforms
 import torch.nn.functional as F
 from datetime import datetime
-from models.model import DSA_RNN
-from models.model import baseline_model
-#r3d_18
+from models.model import get_model
 from utils.misc import parse_args
-
+from utils.optim import get_optimizer
 
 
 def train_parse_args() -> argparse.ArgumentParser:
@@ -64,7 +61,19 @@ def train_parse_args() -> argparse.ArgumentParser:
                         type=float,
                         default=0.5,
                         help='Probability of flipping a video horizontally (default: 0.5)')
-
+    #model argument
+    parser.add_argument('--model_type', 
+                        type = str,
+                        default = 'baseline',
+                        help = 'Type of model (default: baseline)',
+                        choices = ['timesformer', 'baseline']
+                        )
+    #optimizer argument
+    parser.add_argument('--optimizer',
+                        type = str,
+                        default = 'radam',
+                        help = 'option of optimizer(default: radam)'
+                        )
     _args = parser.parse_args()
     return _args
 
@@ -124,7 +133,8 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
             num_frames=16,  # Match the original implementation
             augmentation_config=aug_config,
             global_augment_prob=args.augmentation_prob,
-            horizontal_flip_prob=args.horizontal_flip_prob
+            horizontal_flip_prob=args.horizontal_flip_prob,
+            resize_shape = RESIZE_SHAPE
         )
     else:
         # Use the standard dataset if augmentation is disabled
@@ -132,6 +142,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataset = VideoTo3DImageDataset(
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
+            resize_shape = RESIZE_SHAPE
         )
 
     # Handle debug mode
@@ -157,6 +168,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
     val_dataset = VideoTo3DImageDataset(
         root_dir="./dataset/train",
         csv_file='./dataset/validation_videos.csv',
+        resize_shape = RESIZE_SHAPE
     )
 
     val_loader = torch.utils.data.DataLoader(
@@ -330,7 +342,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
@@ -347,16 +359,17 @@ def main():
     DEBUG = args.debug # debug mode if --debug is added
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
+    RESIZE_SHAPE = (112, 112) if args.model_type == 'baseline' else (224, 224) # used to set up the resize shape of frame
     #DECAY_NFRAME = 20
 
     set_seed(123)
     logger = get_logger()
     device = get_device()
 
-    logger.info('Set-up model')
+    logger.info(f'Set-up model: {args.model_type}')
     logger.info("=> creating model")
 
-    model = baseline_model()
+    model = get_model(model_type = args.model_type)()
     model.to(device)
 
     np = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -365,8 +378,9 @@ def main():
     print_trainable_parameters(model, logger = logger)
     Loss_fn = nn.CrossEntropyLoss()
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
-
-    optimizer = torch.optim.RAdam([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
+    logger.info("=> Creating optimizer")
+    logger.info(f"Set up optimizer: {args.optimizer}")
+    optimizer = get_optimizer(args.optimizer)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}')
