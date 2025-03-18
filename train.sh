@@ -18,7 +18,7 @@ fi
 
 ######### test region ############
 echo "\n\n\n[TestingYamlInput] START"
-python3 train.py train.args.yaml
+python3 train.py train.defaultargs.yaml
 echo "\n\n\n[TestingYamlInput] ENDED"
 exit
 echo "Comment this test region to use original arg parse"
