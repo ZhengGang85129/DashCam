@@ -25,6 +25,7 @@ from utils.misc import parse_args
 from utils.optim import get_optimizer
 from utils.loss import AnticipationLoss
 from torch.amp import autocast, GradScaler
+from utils.stats import case_counting
 
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training')
@@ -67,7 +68,7 @@ def train_parse_args() -> argparse.ArgumentParser:
                         type = str,
                         default = 'baseline',
                         help = 'Type of model (default: baseline)',
-                        choices = ['timesformer', 'baseline']
+                        choices = ['timesformer', 'baseline', 'accidentxai', 'swintransformer']
                         )
     #optimizer argument
     parser.add_argument('--optimizer',
@@ -131,7 +132,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataset = AugmentedVideoDataset(
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
-            num_frames=16,  # Match the original implementation
+            num_frames = 16,  # Match the original implementation
             augmentation_config=aug_config,
             global_augment_prob=args.augmentation_prob,
             horizontal_flip_prob=args.horizontal_flip_prob,
@@ -143,7 +144,8 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataset = VideoTo3DImageDataset(
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
-            resize_shape = RESIZE_SHAPE
+            resize_shape = RESIZE_SHAPE,
+            num_frames = 16, 
         )
 
     # Handle debug mode
@@ -167,9 +169,10 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
 
     # For validation, always use the standard dataset (no augmentation)
     val_dataset = VideoTo3DImageDataset(
-        root_dir="./dataset/train",
+        root_dir="./dataset/train/",
         csv_file='./dataset/validation_videos.csv',
-        resize_shape = RESIZE_SHAPE
+        resize_shape = RESIZE_SHAPE,
+        num_frames = 16, 
     )
 
     val_loader = torch.utils.data.DataLoader(
@@ -210,7 +213,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X = X.to(device)
         target = target.to(device)
         optimizer.zero_grad()
-        with autocast():
+        with autocast(device_type = device.type):
             output = model(X)
             loss = criterion(output, target)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 10) # Gradient clip
@@ -221,13 +224,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         
 
         # Positive and Negative cases counting
-        positive_probs = F.softmax(output, dim=-1)[:, 1]
-        positive = (positive_probs >= 0.5)
-        positive.requires_grad = False
-        negative =  ~positive
-        true_case = target == 1
-        false_case = ~true_case
-
+        positive, negative, true_case, false_case = case_counting(mode = STATS_MODE, output = output, target = target)
         # Time measurement
         batch_time.update(time.time() - start)
         current_iter = epoch * dataset_per_epoch + mini_batch_index + 1
@@ -297,17 +294,12 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device)
             target = target.to(device)
-            with autocast():
+            with autocast(device = device.type):
                 output = model(X)
                 loss = criterion(output, target)
 
             # Positive and Negative cases counting
-            positive_probs = F.softmax(output, dim=-1)[:, 1]
-            positive = (positive_probs >= 0.5)
-            positive.requires_grad = False
-            negative =  ~positive
-            true_case = target == 1
-            false_case = ~true_case
+            positive, negative, true_case, false_case = case_counting(mode = STATS_MODE, output = output, target = target)
 
             # Time measurement
             batch_time.update(time.time() - start)
@@ -349,7 +341,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER, STATS_MODE
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
@@ -367,7 +359,7 @@ def main():
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
     RESIZE_SHAPE = (112, 112) if args.model_type == 'baseline' else (224, 224) # used to set up the resize shape of frame
-    #DECAY_NFRAME = 20
+    STATS_MODE = 'volume' if args.model_type in ['baseline', 'timesformer', 'swintransformer'] else 'sequence'
 
     set_seed(123)
     logger = get_logger()
@@ -383,7 +375,7 @@ def main():
     logger.info(f"Total number of parameters in model: {np}")
     logger.info("Trainable Architecture Components:")
     print_trainable_parameters(model, logger = logger)
-    Loss_fn = nn.CrossEntropyLoss()
+    Loss_fn = nn.CrossEntropyLoss() if STATS_MODE == 'volume' else AnticipationLoss()
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     logger.info("=> Creating optimizer")
     logger.info(f"Set up optimizer: {args.optimizer}")
