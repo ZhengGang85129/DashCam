@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+from utils.misc import parse_args
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training')
     parser.add_argument('--monitor_dir',

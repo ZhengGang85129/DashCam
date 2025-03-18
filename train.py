@@ -24,7 +24,6 @@ from datetime import datetime
 from models.model import DSA_RNN
 from models.model import baseline_model
 #r3d_18
-from utils.misc import parse_args
 from utils.YamlArguments import load_yaml_file_from_arg
 from utils.CommandLineArguments import train_parse_args
 
