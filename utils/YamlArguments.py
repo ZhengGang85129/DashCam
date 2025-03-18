@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import yaml
+
+ALLOWED_AUTMENTATION_TYPES = [ "fog", "noise", "gaussian_blur", "color_jitter", "rain_effect" ]
 class Args:
     def __init__(self, confDICT):
         self.monitor_dir            =       confDICT.get('monitor_dir', 'monitor_train')
@@ -17,7 +19,11 @@ class Args:
         if not isinstance(self.augmentation_types, list):
             raise IOError(f'[InvalidArgumentType] "augmentation_types" required a list but type "{ type(self.augmentation_types) }" in yaml file')
         if len(self.augmentation_types) == 0:
-            raise IOError(f'[ArgumentRequired] "augmentation_types" not found in Yaml file. It is required. The available options are "fog", "noise", gaussian_blur", "color_jitter", "rain_effect"')
+            raise IOError(f'[ArgumentRequired] "augmentation_types" not found in Yaml file. It is required. The available options are "{ALLOWED_AUTMENTATION_TYPES}"')
+        for aug_type in self.augmentation_types:
+            if aug_type not in ALLOWED_AUTMENTATION_TYPES:
+                raise IOError(f'[InvalidAugmentationType] "{ aug_type }" is not allowed. The allowed values: "{ALLOWED_AUTMENTATION_TYPES}"')
+
 
 def yaml_content_args(yamlCONTENT) -> Args:
     return Args( yaml.safe_load(yamlCONTENT) )
