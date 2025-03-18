@@ -25,48 +25,11 @@ from models.model import DSA_RNN
 from models.model import baseline_model
 #r3d_18
 from utils.misc import parse_args
+from utils.YamlArguments import load_yaml_file_from_arg
+from utils.CommandLineArguments import train_parse_args
 
 
 
-def train_parse_args() -> argparse.ArgumentParser:
-    parser = parse_args(parser_name = 'Training')
-    parser.add_argument('--monitor_dir',
-                        type=str, default='monitor_train',
-                        help='directory to save monitoring plots (default: ./train)')
-    parser.add_argument('--learning_rate',
-                        type=float,
-                        default=0.0001,
-                        help='learning rate (default: 0.0001)')
-    parser.add_argument('--epochs',
-                        type=int, default=20,
-                        help='number of epochs to train (default: 20)')
-    parser.add_argument('--batch_size',
-                        type=int,
-                        default=10,
-                        help='batch size for training (default: 10)')
-    parser.add_argument('--num_workers',
-                        type=int,
-                        default = 4,
-                        help='number of workers (default: 4)')
-
-    # Augmentation arguments
-    parser.add_argument('--augmentation_types',
-                        nargs='+',
-                        help='''List of augmentation types to use.
-                                Valid options: "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect"
-                                If specified, augmentation is enabled.
-                                Example: --augmentation_types fog noise horizontal_flip''')
-    parser.add_argument('--augmentation_prob',
-                        type=float,
-                        default=0.25,
-                        help='Probability of applying augmentation to a video (default: 0.25)')
-    parser.add_argument('--horizontal_flip_prob',
-                        type=float,
-                        default=0.5,
-                        help='Probability of flipping a video horizontally (default: 0.5)')
-
-    _args = parser.parse_args()
-    return _args
 
 def get_logger() -> logging.Logger:
     logger_name = "Dashcam-Logger"
@@ -331,8 +294,11 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 def main():
     global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
+    import sys
+    use_yaml_file = len(sys.argv) == 1+1 and '.yaml' in sys.argv[1]
 
-    args = train_parse_args()
+    args = load_yaml_file_from_arg(sys.argv[1]) if use_yaml_file else train_parse_args()
+
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")

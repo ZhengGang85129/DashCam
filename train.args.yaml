@@ -1,0 +1,16 @@
+monitor_dir: "/eos/user/y/ykao/www/kaggle/20250315"
+learning_rate: 2
+epochs: 20
+batch_size: 2
+num_workers: 4
+augmentation_types:
+    - fog
+    - noise
+   #- gaussian_blur
+   #- color_jitter
+   #- rain_effect
+augmentation_prob: 0.25
+horizontal_flip_prob: 0.5
+
+model_dir: model_ckpt
+debug: False
