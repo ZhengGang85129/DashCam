@@ -11,12 +11,24 @@ class FeatureExtractor(nn.Module):
         super(FeatureExtractor, self).__init__()
         
         self.model = models.resnet50(weights = models.ResNet50_Weights.IMAGENET1K_V1) # for transfer learning
-        self.model.fc = nn.Sequential(
-            nn.Linear(2048, 512)
-        )
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
         
+        self.model.fc = nn.Sequential(
+            nn.Linear(2048, 256)
+        )
+        for name, param in self.model.named_parameters():
+            if 'fc' not in name:
+                param.requires_grad = False
+        
+    def __init__weight(self):
+        for name, param in self.model.named_parameters():
+            if 'fc.weight' in name:
+                nn.init.xavier_uniform_(param)
+            elif 'fc.bias' in name:
+                nn.init.constant_(param, 0.)
+        
+         
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+         
         return self.model(x)
         
 #Recurrent neural network
@@ -56,7 +68,7 @@ class GRUNet(nn.Module):
 
 
 class AccidentXai(nn.Module):
-    def __init__(self, num_classes: int = 2,  h_dim: int = 256, n_layers: int = 1):
+    def __init__(self, num_classes: int = 2,  h_dim: int = 128, n_layers: int = 1):
         
         super(AccidentXai, self).__init__()
         
@@ -75,7 +87,8 @@ class AccidentXai(nn.Module):
         h = h.to(x.device)
         
         for t in range(T):
-            x_t = self.ft_extractor(x[:, t])
+            with torch.no_grad():
+                x_t = self.ft_extractor(x[:, t])
             x_t = torch.unsqueeze(x_t, 1)
             
             output, h = self.gru_net(x_t, h)
