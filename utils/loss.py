@@ -2,7 +2,6 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 from typing import Union
-from tool import set_seed
 
 class AnticipationLoss(nn.Module):
     def __init__(self, frame_of_accident:float = 90, n_frames: float = 100, decay_coefficient: float = 30, device: Union[torch.device, None] = None):
@@ -31,13 +30,14 @@ class AnticipationLoss(nn.Module):
         #print(targets.shape)
         logits = logits.reshape(-1, n_classes)
         #print(self.penalty.shape) 
-        log_softmax = F.log_softmax(logits)
+        log_softmax = F.log_softmax(logits, dim = -1)
         #print(log_softmax.shape)
         penalty = self.penalty.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, n_classes)
         #print(penalty.shape) 
-        weighted_log_softmax = log_softmax * penalty
+        weighted_log_softmax = log_softmax * penalty.to(logits.device)
         #print(weighted_log_softmax.shape)
         loss = torch.sum(-weighted_log_softmax * targets)/batch_size/n_frames
+        return loss
         #print(loss)
 if __name__ == "__main__":
     
