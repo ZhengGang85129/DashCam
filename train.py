@@ -294,7 +294,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device)
             target = target.to(device)
-            with autocast(device = device.type):
+            with autocast(device_type = device.type):
                 output = model(X)
                 loss = criterion(output, target)
 
