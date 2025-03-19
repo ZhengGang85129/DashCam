@@ -8,6 +8,7 @@ augmentation_types:
     - noise
    #- gaussian_blur
    #- color_jitter
+   #- horizontal_flip
    #- rain_effect
 augmentation_prob: 0.25
 horizontal_flip_prob: 0.5

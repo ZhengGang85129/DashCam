@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import yaml
 
-ALLOWED_AUTMENTATION_TYPES = [ "fog", "noise", "gaussian_blur", "color_jitter", "rain_effect" ]
+ALLOWED_AUTMENTATION_TYPES = [ "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect" ]
 class Args:
     def __init__(self, confDICT):
         self.monitor_dir            =       confDICT.get('monitor_dir', 'monitor_train')
