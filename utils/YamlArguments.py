@@ -9,13 +9,14 @@ class Args:
         self.epochs                 =   int(confDICT.get('epochs', 20))
         self.batch_size             =   int(confDICT.get('batch_size', 10))
         self.num_workers            =   int(confDICT.get('num_workers', 4))
-        self.augmentation_types     =       confDICT.get('augmentation_types', [])
+        self.augmentation_types     =       confDICT.get('augmentation_types', None)
         self.augmentation_prob      = float(confDICT.get('augmentation_prob', 0.25))
         self.horizontal_flip_prob   = float(confDICT.get('horizontal_flip_prob', 0.5))
 
         self.model_dir              =       confDICT.get('model_dir', 'model_ckpt')
         self.debug                  =  bool(confDICT['debug']) if 'debug' in confDICT else False
 
+        if self.augmentation_types is None: return # allow None
         if not isinstance(self.augmentation_types, list):
             raise IOError(f'[InvalidArgumentType] "augmentation_types" required a list but type "{ type(self.augmentation_types) }" in yaml file')
         if len(self.augmentation_types) == 0:
@@ -54,6 +55,22 @@ model_dir: model_ckpt
 debug: False
     '''
     print(yaml_content_args(yaml_content))
+
+def validate_yaml_files():
+    '''
+    Validate the input yaml file before submit the condor job
+    '''
+    import sys
+    if len(sys.argv) < 1+1:
+        print(f'[InputYamlFiles] Please put yaml files in the argument. Usage: python3 thisfile.py conf1.yaml conf2.yaml')
+
+    for yamlFILE in sys.argv[1:]:
+        print(f'[ReadingYamlFile] {yamlFILE}')
+        load_yaml_file_from_arg(yamlFILE)
+        print(f'[GOOOOOOOOOOOOOD] verified')
+
 if __name__ == "__main__":
-    test_yaml_args()
-    print(load_yaml_file_from_arg('train.args.yaml').debug)
+    #test_yaml_args()
+    #return print(load_yaml_file_from_arg('train.args.yaml').debug)
+    validate_yaml_files()
+
