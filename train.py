@@ -1,9 +1,11 @@
 import torch
 import torch.optim.optimizer
+import torch.optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
 from utils.augmented_dataset import AugmentedVideoDataset  # Import the new augmented dataset class
+from utils.sliding_window_dataset import SlidingWindowDataset  # sliding window dataset
 import logging
 from typing import Tuple, Dict, Union
 
@@ -15,7 +17,6 @@ import os
 from experiment.pseudo_Dataset import PseduoDataset
 import math
 import numpy as np
-import torch
 from utils.tool import get_device, set_seed
 import argparse
 from torchvision import transforms
@@ -71,6 +72,19 @@ def train_parse_args() -> argparse.ArgumentParser:
                    default='alert_focused',
                    choices=['alert_focused', 'random'],
                    help='Strategy to sample video frames (default: alert_focused)')
+    # Sliding window parameters
+    parser.add_argument('--window_size',
+                        type=int,
+                        default=16,
+                        help='Number of frames in each sliding window (default: 16)')
+    parser.add_argument('--total_frames',
+                        type=int,
+                        default=32,
+                        help='Total number of frames to sample from each video (default: 32)')
+    parser.add_argument('--sigmoid_steepness',
+                        type=float,
+                        default=5.0,
+                        help='Controls steepness of the sigmoid probability curve (default: 5.0)')
 
     _args = parser.parse_args()
     return _args
@@ -86,7 +100,7 @@ def get_logger() -> logging.Logger:
     current_time = datetime.now()
     formatted_time = current_time.strftime("%m%d%H%M")
     logging.basicConfig(
-        filename = f'training-lr{LR_RATE}-bs{BATCH_SIZE}-{formatted_time}.log',
+        filename = f'training-sw-lr{LR_RATE}-bs{BATCH_SIZE}-{formatted_time}.log',
         level=logging.INFO,
     )
 
@@ -124,16 +138,21 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         if aug_config['horizontal_flip']:
             logger.info(f"Horizontal flip probability: {args.horizontal_flip_prob}")
 
-        # Use the AugmentedVideoDataset for training
-        train_dataset = AugmentedVideoDataset(
+        logger.info(f"Sliding Window parameters: Size={args.window_size}, Total Frames={args.total_frames}")
+
+        # Use the SlidingWindowDataset for training
+        train_dataset = SlidingWindowDataset(
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
-            sampling_mode=SAMPLING_MODE,
-            num_frames=16,
+            window_size=args.window_size,
+            total_frames=args.total_frames,
             augmentation_config=aug_config,
             global_augment_prob=args.augmentation_prob,
-            horizontal_flip_prob=args.horizontal_flip_prob
+            horizontal_flip_prob=args.horizontal_flip_prob,
+            sigmoid_steepness=args.sigmoid_steepness,
+            training_mode=True
         )
+
     else:
         # Use the standard dataset if augmentation is disabled
         logger.info("Using standard VideoTo3DImageDataset without augmentation")
@@ -161,14 +180,13 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
     if args.debug:
         return train_loader, None
 
-    # For validation, always use the standard dataset (no augmentation)
-    val_dataset = AugmentedVideoDataset(
+    # For validation, use the SlidingWindowDataset in validation mode
+    val_dataset = SlidingWindowDataset(
         root_dir="./dataset/train",
         csv_file='./dataset/validation_videos.csv',
-        sampling_mode=SAMPLING_MODE,
-        num_frames=16,
-        global_augment_prob=0.0, # no augmentation
-        horizontal_flip_prob=0.0 # no horizontal flip
+        window_size=args.window_size,
+        total_frames=args.total_frames,
+        training_mode=False  # Single window per video for validation
     )
 
     val_loader = torch.utils.data.DataLoader(
