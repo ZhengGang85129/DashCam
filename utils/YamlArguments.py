@@ -2,9 +2,11 @@
 import yaml
 
 ALLOWED_AUTMENTATION_TYPES = [ "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect" ]
+ALLOWED_MODEL_TYPES = ['timesformer', 'baseline', 'accidentxai', 'swintransformer']
+
 class Args:
     def __init__(self, confDICT):
-        self.monitor_dir            =       confDICT.get('monitor_dir', 'monitor_train')
+        self.monitor_dir            =   str(confDICT.get('monitor_dir', 'monitor_train'))
         self.learning_rate          = float(confDICT.get('learning_rate', 0.0001))
         self.epochs                 =   int(confDICT.get('epochs', 20))
         self.batch_size             =   int(confDICT.get('batch_size', 10))
@@ -12,18 +14,25 @@ class Args:
         self.augmentation_types     =       confDICT.get('augmentation_types', None)
         self.augmentation_prob      = float(confDICT.get('augmentation_prob', 0.25))
         self.horizontal_flip_prob   = float(confDICT.get('horizontal_flip_prob', 0.5))
+        self.model_type             =   str(confDICT.get('model_type', 'baseline'))
+        self.optimizer              =   str(confDICT.get('optimizer', 'radam'))
 
         self.model_dir              =       confDICT.get('model_dir', 'model_ckpt')
         self.debug                  =  bool(confDICT['debug']) if 'debug' in confDICT else False
 
-        if self.augmentation_types is None: return # allow None
-        if not isinstance(self.augmentation_types, list):
-            raise IOError(f'[InvalidArgumentType] "augmentation_types" required a list but type "{ type(self.augmentation_types) }" in yaml file')
-        if len(self.augmentation_types) == 0:
-            raise IOError(f'[ArgumentRequired] "augmentation_types" not found in Yaml file. It is required. The available options are "{ALLOWED_AUTMENTATION_TYPES}"')
-        for aug_type in self.augmentation_types:
-            if aug_type not in ALLOWED_AUTMENTATION_TYPES:
-                raise IOError(f'[InvalidAugmentationType] "{ aug_type }" is not allowed. The allowed values: "{ALLOWED_AUTMENTATION_TYPES}"')
+        if self.augmentation_types is None:
+            pass ### if nothing set. use default value
+        else:
+            if not isinstance(self.augmentation_types, list):
+                raise IOError(f'[InvalidArgumentType] "augmentation_types" required a list but type "{ type(self.augmentation_types) }" in yaml file')
+            if len(self.augmentation_types) == 0:
+                raise IOError(f'[ArgumentRequired] "augmentation_types" not found in Yaml file. It is required. The available options are "{ALLOWED_AUTMENTATION_TYPES}"')
+            for aug_type in self.augmentation_types:
+                if aug_type not in ALLOWED_AUTMENTATION_TYPES:
+                    raise IOError(f'[InvalidAugmentationType] "{ aug_type }" is not allowed. The allowed values: "{ALLOWED_AUTMENTATION_TYPES}"')
+
+        if self.model_type not in ALLOWED_MODEL_TYPES:
+            raise IOError(f'[InvalidModelType] "{ self.model_type }" is not allowed. The allowed values: "{ ALLOWED_MODEL_TYPES }"')
 
 
 def yaml_content_args(yamlCONTENT) -> Args:

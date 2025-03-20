@@ -1,5 +1,4 @@
 import torch
-import torch.optim.optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
@@ -23,11 +22,16 @@ import torch.nn.functional as F
 from datetime import datetime
 from models.model import DSA_RNN
 from models.model import baseline_model
-#r3d_18
 from utils.YamlArguments import load_yaml_file_from_arg
 from utils.CommandLineArguments import train_parse_args
 
 
+
+from models.model import get_model
+from utils.optim import get_optimizer
+from utils.loss import AnticipationLoss
+from torch.amp import autocast, GradScaler
+from utils.stats import case_counting
 
 
 def get_logger() -> logging.Logger:
@@ -83,10 +87,11 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataset = AugmentedVideoDataset(
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
-            num_frames=16,  # Match the original implementation
+            num_frames = 16,  # Match the original implementation
             augmentation_config=aug_config,
             global_augment_prob=args.augmentation_prob,
-            horizontal_flip_prob=args.horizontal_flip_prob
+            horizontal_flip_prob=args.horizontal_flip_prob,
+            resize_shape = RESIZE_SHAPE
         )
     else:
         # Use the standard dataset if augmentation is disabled
@@ -94,6 +99,8 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         train_dataset = VideoTo3DImageDataset(
             root_dir="./dataset/train/",
             csv_file='./dataset/train_videos.csv',
+            resize_shape = RESIZE_SHAPE,
+            num_frames = 16, 
         )
 
     # Handle debug mode
@@ -117,8 +124,10 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
 
     # For validation, always use the standard dataset (no augmentation)
     val_dataset = VideoTo3DImageDataset(
-        root_dir="./dataset/train",
+        root_dir="./dataset/train/",
         csv_file='./dataset/validation_videos.csv',
+        resize_shape = RESIZE_SHAPE,
+        num_frames = 16, 
     )
 
     val_loader = torch.utils.data.DataLoader(
@@ -159,19 +168,18 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         X = X.to(device)
         target = target.to(device)
         optimizer.zero_grad()
-        output = model(X)
-        loss = criterion(output, target)
-        loss.backward()
-        optimizer.step()
+        with autocast(device_type = device.type):
+            output = model(X)
+            loss = criterion(output, target)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 10) # Gradient clip
+        
+        SCALER.scale(loss).backward()
+        SCALER.step(optimizer)
+        SCALER.update()
+        
 
         # Positive and Negative cases counting
-        positive_probs = F.softmax(output, dim=-1)[:, 1]
-        positive = (positive_probs >= 0.5)
-        positive.requires_grad = False
-        negative =  ~positive
-        true_case = target == 1
-        false_case = ~true_case
-
+        positive, negative, true_case, false_case = case_counting(mode = STATS_MODE, output = output, target = target)
         # Time measurement
         batch_time.update(time.time() - start)
         current_iter = epoch * dataset_per_epoch + mini_batch_index + 1
@@ -241,16 +249,12 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
             X, target = data
             X = X.to(device)
             target = target.to(device)
-            output = model(X)
-            loss = criterion(output, target)
+            with autocast(device_type = device.type):
+                output = model(X)
+                loss = criterion(output, target)
 
             # Positive and Negative cases counting
-            positive_probs = F.softmax(output, dim=-1)[:, 1]
-            positive = (positive_probs >= 0.5)
-            positive.requires_grad = False
-            negative =  ~positive
-            true_case = target == 1
-            false_case = ~true_case
+            positive, negative, true_case, false_case = case_counting(mode = STATS_MODE, output = output, target = target)
 
             # Time measurement
             batch_time.update(time.time() - start)
@@ -292,7 +296,7 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER, STATS_MODE
     import sys
     use_yaml_file = len(sys.argv) == 1+1 and '.yaml' in sys.argv[1]
 
@@ -312,27 +316,31 @@ def main():
     DEBUG = args.debug # debug mode if --debug is added
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
-    #DECAY_NFRAME = 20
+    RESIZE_SHAPE = (112, 112) if args.model_type == 'baseline' else (224, 224) # used to set up the resize shape of frame
+    STATS_MODE = 'volume' if args.model_type in ['baseline', 'timesformer', 'swintransformer'] else 'sequence'
 
     set_seed(123)
     logger = get_logger()
     device = get_device()
 
-    logger.info('Set-up model')
+    logger.info(f'Set-up model: {args.model_type}')
     logger.info("=> creating model")
 
-    model = baseline_model()
+    model = get_model(model_type = args.model_type)()
     model.to(device)
 
     np = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Total number of parameters in model: {np}")
     logger.info("Trainable Architecture Components:")
     print_trainable_parameters(model, logger = logger)
-    Loss_fn = nn.CrossEntropyLoss()
+    Loss_fn = nn.CrossEntropyLoss() if STATS_MODE == 'volume' else AnticipationLoss()
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
-
-    optimizer = torch.optim.RAdam([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
+    logger.info("=> Creating optimizer")
+    logger.info(f"Set up optimizer: {args.optimizer}")
+    optimizer = get_optimizer(args.optimizer)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
+    SCALER = GradScaler()
+    
     logger.info(f'{optimizer}')
     logger.info(f'Total number of epochs: {EPOCHS}')
     logger.info(f'Load dataset...')

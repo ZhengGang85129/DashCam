@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 from utils.misc import parse_args
+
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training')
     parser.add_argument('--monitor_dir',
@@ -37,6 +38,18 @@ def train_parse_args() -> argparse.ArgumentParser:
                         type=float,
                         default=0.5,
                         help='Probability of flipping a video horizontally (default: 0.5)')
-
+    #model argument
+    parser.add_argument('--model_type', 
+                        type = str,
+                        default = 'baseline',
+                        help = 'Type of model (default: baseline)',
+                        choices = ['timesformer', 'baseline', 'accidentxai', 'swintransformer']
+                        )
+    #optimizer argument
+    parser.add_argument('--optimizer',
+                        type = str,
+                        default = 'radam',
+                        help = 'option of optimizer(default: radam)'
+                        )
     _args = parser.parse_args()
     return _args
