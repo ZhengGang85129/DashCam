@@ -181,4 +181,11 @@ cython_debug/
 .swanproject
 *123.png
 
+# VIM tmp files
 .*.swp
+.*.swo
+
+# condor logs
+matrix.*.err
+matrix.*.out
+matrix.*.log
