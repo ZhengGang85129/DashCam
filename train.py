@@ -211,6 +211,9 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
                         f'Acc {(TP_meter.current_value + TN_meter.current_value)/(true_meter.current_value + false_meter.current_value) + EPS:.3f} ({(TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS):.3f})'
                         )
         start = time.time()
+        if DEBUG:
+            print(f'[DEBUGMODE] Main Loop broken due to args.debug')
+            break
 
 
     return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum  + EPS),
