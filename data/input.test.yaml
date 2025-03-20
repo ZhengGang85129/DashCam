@@ -16,4 +16,4 @@ model_type: baseline
 optimizer: radam
 
 model_dir: model_ckpt
-debug: False
+debug: True
