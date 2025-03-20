@@ -12,6 +12,8 @@ augmentation_types:
     - horizontal_flip
     - rain_effect
 horizontal_flip_prob: 0.5
+model_type: baseline
+optimizer: radam
 
 model_dir: model_ckpt
 debug: False
