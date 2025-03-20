@@ -1,22 +1,32 @@
-executable              = train.sh
-arguments               = $(batch_size) $(learning_rate) $(aug_types) $(aug_prob)
-output                  = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_label)_p$(aug_prob).$(ClusterId).$(ProcId).out
-error                   = matrix.bs$(batch_size).lr$(learning_rate).aug$(aug_label)_p$(aug_prob).$(ClusterId).$(ProcId).err
+### Usage:
+###    condor_submit condor.sub  -batch_name "test" -a "working_dir=$PWD"
+
+
+#### FIXME
+working_dir             = /afs/cern.ch/user/l/ltsai/Work/DashCam
+
+executable              = train.acceptYAML.sh
+arguments               = $(yaml_file) $(working_dir)
+output                  = matrix.$(job_label).$(ClusterId).$(ProcId).out
+error                   = matrix.$(job_label).$(ClusterId).$(ProcId).err
 log                     = matrix.$(ClusterId).log
+
 when_to_transfer_output = ON_EXIT
 request_GPUs = 1
 request_CPUs = 12
 +JobFlavour = "testmatch"
+getenv = PYTHONPATH
 
-# Create a queue for each combination
-queue batch_size, learning_rate, aug_prob, aug_label, aug_types from (
-   10 0.0001 0.25 none -
-   10 0.0001 0.25 fog fog
-   10 0.0001 0.25 noise noise
-   10 0.0001 0.25 gaussian_blur gaussian_blur
-   10 0.0001 0.25 color_jitter color_jitter
-   10 0.0001 0.25 horizontal_flip horizontal_flip
-   10 0.0001 0.25 rain_effect rain_effect
-   10 0.0001 0.25 noBlur color_jitter\ horizontal_flip\ rain_effect
-   10 0.0001 0.25 all fog\ noise\ gaussian_blur\ color_jitter\ horizontal_flip\ rain_effect
+# # Create a queue for each combination
+queue job_label, yaml_file from (
+#        test             data/input.test.yaml
+        none             data/input.none.yaml
+        fog              data/input.fog.yaml
+        noise            data/input.noise.yaml
+        gaussian_blur    data/input.gaussian_blur.yaml
+        color_jitter     data/input.color_jitter.yaml
+        horizontal_flip  data/input.horizontal_flip.yaml
+        rain_effect      data/input.rain_effect.yaml
+        noBlur           data/input.noBlur.yaml
+        all              data/input.all.yaml
 )
