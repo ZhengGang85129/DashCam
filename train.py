@@ -2,9 +2,11 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
+from utils.accident_validation_dataset import PreAccidentValidationDataset
+from utils.accident_training_dataset import PreAccidentTrainingDataset
 from utils.augmented_dataset import AugmentedVideoDataset  # Import the new augmented dataset class
 import logging
-from typing import Tuple, Dict, Union
+from typing import Tuple, Dict, Union, List
 
 import torch.nn as nn
 from utils.tool import AverageMeter, Monitor
@@ -23,9 +25,10 @@ from datetime import datetime
 from models.model import get_model
 from utils.misc import parse_args
 from utils.optim import get_optimizer
-from utils.loss import AnticipationLoss
+from utils.loss import AnticipationLoss, TemporalBinaryCrossEntropy
 from torch.amp import autocast, GradScaler
 from utils.stats import case_counting
+from sklearn.metrics import average_precision_score
 
 def train_parse_args() -> argparse.ArgumentParser:
     parser = parse_args(parser_name = 'Training')
@@ -96,7 +99,10 @@ def get_logger() -> logging.Logger:
 
     return logger
 
-def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.data.DataLoader, Union[torch.utils.data.DataLoader, None]]:
+
+
+
+def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[torch.utils.data.DataLoader, None]]:
     '''
     Create and return data loaders for training and validation.
 
@@ -131,7 +137,7 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         # Use the AugmentedVideoDataset for training
         train_dataset = AugmentedVideoDataset(
             root_dir="./dataset/train/",
-            csv_file='./dataset/train_videos.csv',
+            csv_file='./dataset/train.csv',
             num_frames = 16,  # Match the original implementation
             augmentation_config=aug_config,
             global_augment_prob=args.augmentation_prob,
@@ -140,12 +146,15 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         )
     else:
         # Use the standard dataset if augmentation is disabled
-        logger.info("Using standard VideoTo3DImageDataset without augmentation")
-        train_dataset = VideoTo3DImageDataset(
-            root_dir="./dataset/train/",
-            csv_file='./dataset/train_videos.csv',
-            resize_shape = RESIZE_SHAPE,
-            num_frames = 16, 
+        logger.info("Using standard PreAccidentTrainDataset without augmentation")
+        train_dataset = PreAccidentTrainingDataset(
+            root_dir="./dataset/train/train_video",
+            csv_file='./dataset/extracted_train.csv',
+            num_frames = 16,
+            frame_window = 16,
+            interested_interval = 100,
+            resize_shape = (128, 171),
+            crop_size = (112, 112)
         )
 
     # Handle debug mode
@@ -166,15 +175,16 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
 
     if args.debug:
         return train_loader, None
-
-    # For validation, always use the standard dataset (no augmentation)
-    val_dataset = VideoTo3DImageDataset(
-        root_dir="./dataset/train/",
-        csv_file='./dataset/validation_videos.csv',
-        resize_shape = RESIZE_SHAPE,
-        num_frames = 16, 
+    
+    val_dataset = PreAccidentTrainingDataset(
+        root_dir = f'dataset/train/validation_video/',
+        csv_file = './dataset/extracted_val.csv',
+        num_frames = 16,
+        frame_window = 16,
+        interested_interval = 100,
+        resize_shape = (128, 171),
+        crop_size = (112, 112)
     )
-
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.batch_size,
@@ -182,8 +192,30 @@ def get_dataloaders(args, logger, val_ratio: float = 0.2) -> Tuple[torch.utils.d
         num_workers=args.num_workers,
         pin_memory=True
     )
-
     return train_loader, val_loader
+
+def get_eval_dataloaders(args, logger) -> Dict[str, torch.utils.data.DataLoader]:
+    val_loaders = dict()
+    
+    logger.info('Loading the evaluation dataset with multiple pre-accident time intervals (500ms, 1000ms, and 1500ms).')
+    for pre_accident_time in ['500', '1000', '1500']:
+        val_dataset = PreAccidentValidationDataset(
+            root_dir = f'dataset/train/validation_video/tta_{pre_accident_time}ms',
+            csv_file = 'dataset/validation_videos.csv'
+        )
+        # For validation, always use the standard dataset (no augmentation)
+    
+        val_loader = torch.utils.data.DataLoader(
+            val_dataset,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            pin_memory=True
+        )
+        val_loaders[pre_accident_time] =  val_loader
+    return val_loaders
+    
+
 
 def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, criterion: torch.nn.Module, epoch: int, optimizer: torch.optim.Optimizer) -> Dict[str, float]:
 
@@ -209,13 +241,13 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
     logger.info(f'Train-procedure with {len(train_loader)} iterations')
     for mini_batch_index, data in enumerate(train_loader):
         data_time.update(time.time() - start)
-        X, target = data
+        X, target, T_diff = data
         X = X.to(device)
         target = target.to(device)
         optimizer.zero_grad()
         with autocast(device_type = device.type):
             output = model(X)
-            loss = criterion(output, target)
+            loss = criterion(output, target, T_diff)
         torch.nn.utils.clip_grad_norm_(model.parameters(), 10) # Gradient clip
         
         SCALER.scale(loss).backward()
@@ -224,7 +256,7 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
         
 
         # Positive and Negative cases counting
-        positive, negative, true_case, false_case = case_counting(mode = STATS_MODE, output = output, target = target)
+        positive, negative, true_case, false_case = case_counting(mode = 'volume', output = output, target = target)
         # Time measurement
         batch_time.update(time.time() - start)
         current_iter = epoch * dataset_per_epoch + mini_batch_index + 1
@@ -291,15 +323,16 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
     with torch.no_grad():
         for mini_batch_index, data in enumerate(val_loader):
             data_time.update(time.time() - start)
-            X, target = data
+            X, target, T_diff = data
             X = X.to(device)
             target = target.to(device)
+            T_diff = T_diff.to(device)
             with autocast(device_type = device.type):
                 output = model(X)
-                loss = criterion(output, target)
-
+                loss = criterion(output, target, T_diff)
+            
             # Positive and Negative cases counting
-            positive, negative, true_case, false_case = case_counting(mode = STATS_MODE, output = output, target = target)
+            positive, negative, true_case, false_case = case_counting(mode = 'volume', output = output, target = target)
 
             # Time measurement
             batch_time.update(time.time() - start)
@@ -330,18 +363,44 @@ def validation(val_loader: torch.utils.data.DataLoader, model: torch.nn.Module, 
                             f'RCall {TP_meter.current_value/(TP_meter.current_value + FN_meter.current_value + EPS):.3f} ({TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS):.3f}) '
                             f'Acc {(TP_meter.current_value + TN_meter.current_value)/(true_meter.current_value + false_meter.current_value) + EPS:.3f} ({(TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS):.3f})'
                             )
+            
             start = time.time()
-
+    #logger.info(f'Epoch[{epoch + 1:03d}/{EPOCHS:03d}] mean Average Precision on 500ms/1000ms/1500ms: {mAP/3:.3f}')
 
     return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum  + EPS),
             'mRecall': TP_meter.sum/(TP_meter.sum + FN_meter.sum + EPS),
             'mLoss': loss_meter.avg_value,
-            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS)
+            'mAcc': (TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS),
                 }
+
+def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: torch.nn.Module) -> float:
+    
+    model.eval()
+    logger.info('===> Processing mean averaged precision (mAP) with multiple pre-accident time intervals.')
+    mAP = 0
+    for pre_accident_time in ['500', '1000', '1500']:
+        logger.info(f'Processing with pre-accident time intervals: {pre_accident_time} ms...')
+        outputs = []
+        targets = []
+        for data in val_loaders[pre_accident_time]:
+            X, y = data
+            X = X.to(device)
+            y = y.to(device)
+            output = model(X)
+            prob = F.softmax(output, dim = 1)
+            outputs += prob[:, 1].tolist()
+            targets += y.tolist()
+        outputs = torch.tensor(outputs).to('cpu')
+        targets = torch.tensor(targets).to('cpu')
+        mAP += average_precision_score(targets, outputs)
+    mAP = mAP/3
+    logger.info(f'===> Current mean averaged precision: {mAP}')
+    return mAP
+     
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER, STATS_MODE
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER
 
     args = train_parse_args()
     print(f"Training with batch size: {args.batch_size}")
@@ -359,7 +418,7 @@ def main():
     EPS = 1e-8 # small number to avoid zero-division
     NUM_WORKERS = args.num_workers
     RESIZE_SHAPE = (112, 112) if args.model_type == 'baseline' else (224, 224) # used to set up the resize shape of frame
-    STATS_MODE = 'volume' if args.model_type in ['baseline', 'timesformer', 'swintransformer'] else 'sequence'
+    #STATS_MODE = 'volume' if args.model_type in ['baseline', 'timesformer', 'swintransformer'] else 'sequence'
 
     set_seed(123)
     logger = get_logger()
@@ -375,7 +434,7 @@ def main():
     logger.info(f"Total number of parameters in model: {np}")
     logger.info("Trainable Architecture Components:")
     print_trainable_parameters(model, logger = logger)
-    Loss_fn = nn.CrossEntropyLoss() if STATS_MODE == 'volume' else AnticipationLoss()
+    Loss_fn = TemporalBinaryCrossEntropy(decay_coefficient = 30) 
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     logger.info("=> Creating optimizer")
     logger.info(f"Set up optimizer: {args.optimizer}")
@@ -388,7 +447,8 @@ def main():
     logger.info(f'Load dataset...')
 
     # Updated call to get_dataloaders to pass args
-    train_dataloader, val_dataloader = get_dataloaders(args, logger, val_ratio=0.2)
+    train_dataloader, val_dataloader = get_dataloaders(args, logger)
+    eval_dataloaders = get_eval_dataloaders(args = args, logger = logger)
 
     os.makedirs(args.model_dir, exist_ok = True) # save model parameters under this folder
     os.makedirs(args.monitor_dir, exist_ok = True) # save training details under this folder
@@ -425,7 +485,10 @@ def main():
         train_metrics = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
         logger.info('Evaluating...')
         if not DEBUG:
-            valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
+            valid_metrics = validation(val_loaders = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
+            mAP = mAP_evaluation(val_loaders = eval_dataloaders, model = model)
+            valid_metrics['mAP'] = mAP 
+            
             scheduler.step(valid_metrics['mLoss'])
             current_lr = optimizer.param_groups[0]['lr']
             logger.info(f'Current learning rate: {current_lr:.8f}')
@@ -443,8 +506,8 @@ def main():
                 'best_point': best_point_metrics
             })
 
-        # torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
-        # torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
+        #torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
+        #torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
     return
 
 if __name__ == "__main__":
