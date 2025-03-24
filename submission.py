@@ -28,7 +28,7 @@ def eval_parse_args() -> argparse.ArgumentParser:
 
 
 def load_model(state_path: Optional[str] = None) -> nn.Module:
-    model = get_model(args.model_type)
+    model = get_model(args.model_type)()
     if state_path is None:
         raise FileNotFoundError(f"The state_dict is None.")
     elif not os.path.isfile(state_path):
