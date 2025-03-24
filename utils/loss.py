@@ -39,10 +39,39 @@ class AnticipationLoss(nn.Module):
         loss = torch.sum(-weighted_log_softmax * targets)/batch_size/n_frames
         return loss
         #print(loss)
+
+class TemporalBinaryCrossEntropy(nn.Module):
+    def __init__(self, decay_coefficient:int = 20):
+        super(TemporalBinaryCrossEntropy, self).__init__()
+         
+        self.decay_coefficient = decay_coefficient
+        self.ce_loss = nn.CrossEntropyLoss(reduction='none', )
+        
+    def forward(self, output: torch.Tensor, target: torch.Tensor, T_diff: torch.Tensor) -> torch.Tensor:
+        
+        pos_weight = torch.exp(-F.relu(T_diff)/self.decay_coefficient).to(target.device)
+        neg_weight = torch.ones_like(target).to(target.device)
+        one_hot = F.one_hot(target, num_classes = 2).to(output.device)
+        weight = torch.stack([neg_weight, pos_weight], dim = 1).to(output.device)
+        sample_weights = torch.sum(one_hot * weight, dim=1)
+        #print(target, output)
+        per_sample_loss = self.ce_loss(output, target)
+        #print(per_sample_loss)
+        #print(sample_weights)
+        #print(sample_weights * per_sample_loss)
+        return  torch.mean(sample_weights * per_sample_loss)
+
+
 if __name__ == "__main__":
+    Loss_fn = TemporalBinaryCrossEntropy(decay_coefficient=20)
+    output = torch.tensor([-5e-2, 1]).expand([16, -1])
+    #torch.ones(size = (16, 2)).to(torch.float32)
+    target = torch.tensor([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1,1, 1,1 ,1 ,1]).to(torch.long)
+    T_diff = torch.arange(start = 6, end = -10, step = -1)
+    #target = torch.randint(low = 0, high = 2, size=(16, )).to(torch.long)
+    #end_frame = torch.randint(low = 0, high = 96, size = (16, 1))
     
-    targets = torch.randint(low = 0, high = 2, size = (10,))
-    targets = targets.to(torch.long)
-    pred = torch.zeros((10, 100, 2))
-    Loss = AnticipationLoss()
-    print(Loss(pred, targets))
+    print(output.shape, target)
+    
+    print(Loss_fn(output, target, T_diff))
+    
