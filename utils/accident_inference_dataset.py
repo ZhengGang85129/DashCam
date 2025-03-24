@@ -9,6 +9,9 @@ import math
 import numpy as np
  
 class PreAccidentInferenceDataset(Dataset):
+    '''
+    The sampling approach is the sliding window.
+    '''
     def __init__(
         self,
         root_dir: str = 'dataset/test',
