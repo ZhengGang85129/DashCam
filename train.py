@@ -485,7 +485,7 @@ def main():
         train_metrics = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
         logger.info('Evaluating...')
         if not DEBUG:
-            valid_metrics = validation(val_loaders = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
+            valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
             mAP = mAP_evaluation(val_loaders = eval_dataloaders, model = model)
             valid_metrics['mAP'] = mAP 
             
