@@ -9,11 +9,14 @@ import math
 import numpy as np
  
 class PreAccidentValidationDataset(Dataset):
+    '''
+    The sampling approach is the sliding window.
+    '''
     def __init__(
         self,
         root_dir: str = 'dataset/train/validation_video',
         csv_file: str = './dataset/validation_videos.csv',
-        num_sample_frames: int = 16,
+        num_frames: int = 16,
         frame_window: int = 16,
         resize_shape: Tuple[int, int] = (128, 171),
         crop_size: Tuple[int, int] = (112, 112)
@@ -33,7 +36,7 @@ class PreAccidentValidationDataset(Dataset):
         
         global_index = 0
         
-        self.num_frames = num_sample_frames 
+        self.num_frames = num_frames 
         self.frame_window = frame_window
         self.transforms1 = transforms.Compose([
             transforms.ToTensor(), # Convert (H, W, C) with range [0, 255] into (C, H, W) with range (0, 1)
@@ -71,7 +74,7 @@ class PreAccidentValidationDataset(Dataset):
         # Calculate interval
         interval = math.floor(self.frame_window / self.num_frames)
         end_frame = total_frames - 1
-        start_frame = max(end_frame - 15 * interval, 0)
+        start_frame = 0
         frames_saved = 0
         frames = []
         
@@ -93,11 +96,16 @@ class PreAccidentValidationDataset(Dataset):
         
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        idx
+        Args:
+            idx: index for the video.
+        Reture:
+            frames(batch_size, num_frames, n_channels, height, width): Tensor containing video frames with dimensions representing batch samples, temporal sequence, color channels, and spatial resolution.
+            target(batch_size): Binary indicator of whether each frame originates from a video containing an accident.
         """ 
         video_path, target = self.video_files[idx]
         frames = self.__load_video(video_path)
-        return torch.stack(frames, dim = 1).permute(1, 0, 2, 3), target
+        frames = torch.stack(frames, dim = 1).permute(1, 0, 2, 3) 
+        return frames, target
 
 
 if __name__ == '__main__':
