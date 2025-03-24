@@ -3,7 +3,7 @@ from typing import List, Tuple, Dict, Union, cast
 import cv2
 import os
 
-def extract_frames_before_timestamp(output_dir: str = './', video_info: Dict = None, pre_accident_stamps = [500, 1000, 1500], clip_duration_sec:int = 10):
+def extract_frames_before_timestamp(output_dir: str = './', video_info: Dict = None, pre_accident_stamps = [500, 1000, 1500], n_frames:int = 16):
     """
     
     """
@@ -26,9 +26,9 @@ def extract_frames_before_timestamp(output_dir: str = './', video_info: Dict = N
     for pre_time in pre_accident_stamps:
         
         if  src_event_time*1000 < pre_time: continue
-        end_time = src_event_time*1000 - pre_time  
-        end_frame = int((end_time / 1000) * src_fps)
-        start_frame = max(0, end_frame - int(clip_duration_sec * src_fps))
+        end_time = src_event_time - pre_time/1000  
+        end_frame = int(end_time * src_fps) - 1
+        start_frame = max(0, end_frame - int(n_frames - 1))
         output_path = os.path.join(
             output_dir, f"tta_{pre_time}ms/{src_Index:05d}.mp4"
         )
@@ -42,7 +42,7 @@ def extract_frames_before_timestamp(output_dir: str = './', video_info: Dict = N
         
         # Read and write frames
         print(end_frame, start_frame)
-        for _ in range(end_frame - start_frame):
+        for _ in range(start_frame, end_frame + 1):
             ret, frame = src_cap.read()
             if not ret:
                 break
@@ -73,7 +73,7 @@ def pick(Index: int, dataframe: pd.DataFrame)->Tuple[str, float]:
 
 def get_video_info(video_path: str) -> Dict[str, Union[float, int, str, cv2.VideoCapture]]:
     cap = cv2.VideoCapture(video_path)
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
+    fps = float(cap.get(cv2.CAP_PROP_FPS))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -103,11 +103,11 @@ if __name__ == "__main__":
         if not os.path.exists(os.path.join(output_dir, f'tta_{pre_time}ms')):
             os.makedirs(os.path.join(output_dir, f'tta_{pre_time}ms'))
     
+     
     for _, row in dataframe.iterrows():
-        extract_frames_before_timestamp(output_dir = output_dir, video_info = pick(int(row.id), dataframe = dataframe,), pre_accident_stamps = pre_accident_stamps, clip_duration_sec = 10) 
+        extract_frames_before_timestamp(output_dir = output_dir, video_info = pick(int(row.id), dataframe = dataframe,), pre_accident_stamps = pre_accident_stamps, n_frames = 16) 
     
      
-    #extract_frames_before_timestamp(output_dir = './', video_info = None) 
     
     
      
