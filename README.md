@@ -123,7 +123,7 @@ python3 ./accident_prediction_vis.py --clip_path dataset/train/train_video/00043
 
 
 ```
-python3 ./score_assessment.py --model_ckpt <path_to_modelckpt> --num_workers 8
+python3 ./score_assessment.py --model_ckpt ./sliding_window/model_ckpt-epoch01_bs10_lr0.0001.pt --num_workers 8 
 ```
 
 ## Step 5. Inference

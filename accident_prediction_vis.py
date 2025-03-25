@@ -142,11 +142,12 @@ if __name__ == "__main__":
     print('Inferencing...')
     probs = []
     T_diffs  = torch.tensor([90 - i for i in range(90)] + [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10])
-    for i in range(10):
-        output = model(window_stacks[i* 10: (i + 1) * 10])
-        target = torch.ones((10)).to(torch.long)
-        prob = F.softmax(output, dim = 1).detach().numpy()
-        probs += prob[:, 1].tolist()
+    with torch.no_grad():
+        for i in range(10):
+            output = model(window_stacks[i* 10: (i + 1) * 10])
+            target = torch.ones((10)).to(torch.long)
+            prob = F.softmax(output, dim = 1).detach().numpy()
+            probs += prob[:, 1].tolist()
     
     frame_indices = [i for i in range(100)]
     

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import os
-from models.model import baseline_model
+from models.model import get_model
 from utils.tool import get_device
 from typing import Optional, Dict, Tuple
 from utils.misc import parse_args
@@ -14,11 +14,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 from utils.accident_validation_dataset import PreAccidentValidationDataset 
-
+'''
+python3 ./score_assessment.py --model_ckpt <CHECKPOINT> --model_type <MODEL_TYPE> --save_dir ./model_assessment --num_workers 8 
+'''
 def _parse_args() -> argparse.ArgumentParser:
     parser = parse_args()
     parser.add_argument('--model_ckpt', type = str, default = None, help = 'path to your model check point.') 
-    #parser.add_argument('--mode', type = str, choices = ['inference', 'evaluation'], required = True)
+    parser.add_argument('--model_type', type = str, required = True)
     parser.add_argument('--save_dir', type = str, default = './model_assessment', help = 'path to save your output result.(default: model_assessment)')
     parser.add_argument('--num_workers', type = int, default = 4, help = 'number of workers.(default: 4)')
     args = parser.parse_args()  
@@ -40,7 +42,7 @@ def get_dataloader(root_dir: str = 'dataset/sliding_window/evaluation/tta_500ms'
 
 
 def load_model(state_path: Optional[str] = None) -> nn.Module:
-    model = baseline_model()
+    model = get_model(args.model_type)()
     if state_path is None:
         raise FileNotFoundError(f"The state_dict is None.")
     elif not os.path.isfile(state_path):
