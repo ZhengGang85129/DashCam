@@ -1,9 +1,24 @@
+import os, sys
+sys.path.append(os.getcwd())
 import pandas as pd
+
 from typing import List, Tuple, Dict, Union, cast, Optional
 from functools import partial
-import os
+
 import cv2
-import sys
+
+from utils.misc import parse_args
+import argparse
+
+
+def parser() -> argparse.ArgumentParser:
+
+    parser = parse_args(parser_name = 'preprocess')
+    parser.add_argument('--dataset', type = str, choices = ['train', 'validation'])
+
+    return parser.parse_args()
+
+
 
 def extract_clips(cap: cv2.VideoCapture, time_of_event:float, time_of_alert: Optional[float], output_path:str, width:int, height: int,  fps: float = 30.0, pre_accident_frames: int = 105, post_accident_frames: int = 10)-> Tuple[int, int, int, int]:
     """
@@ -59,6 +74,7 @@ def pick(Index: int, dataframe: pd.DataFrame)-> Tuple[str, float]:
 
      
 def get_video_info(video_path: str) -> Dict[str, Union[float, int, str, cv2.VideoCapture]]:
+    print(video_path)
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -75,18 +91,20 @@ def get_video_info(video_path: str) -> Dict[str, Union[float, int, str, cv2.Vide
     
 
 
-
+import sys
 
 def main():
-    
-    df = pd.read_csv(f'./dataset/train_videos.csv')
+    global args
+    args = parser()
+    output_dir = f'dataset/sliding_window'
+
+    df = pd.read_csv(f'{output_dir}/{args.dataset}_videos.csv')
     
     clip =  partial(extract_clips) 
-    output_dir = f'dataset/train/train_video'
     extracted_df = []
     
-    if not os.path.isdir(output_dir):
-        os.mkdir(output_dir)  
+    os.makedirs(output_dir, exist_ok = True)
+    os.makedirs(os.path.join(output_dir, args.dataset), exist_ok = True)  
     for _, row in df.iterrows():
         #print(int(row.id), row.time_of_event)
         video_path, time_of_event, time_of_alert = pick(Index = int(row.id), dataframe = df)
@@ -104,7 +122,7 @@ def main():
      
         print(f'pivot time: {pivot_time:.3f} sec, target: {row.target}, total duration: {duration:3f}')
         try:
-            output_path = os.path.join(output_dir, f'{int(row.id):05d}.mp4')
+            output_path = os.path.join(output_dir, f'{args.dataset}/{int(row.id):05d}.mp4')
             print(f"Processing {int(row.id):05d}.mp4 ...")
             start_frame, end_frame, event_frame, alert_frame = clip(cap = cast(cv2.VideoCapture, video_prop.get('cap')), time_of_event = cast(float, pivot_time), fps = cast(float, video_prop.get('fps')) , output_path = cast(str, output_path), width = cast(int, video_prop.get('width')), height = cast( int, video_prop.get('height')), time_of_alert = alert_time)
             print(start_frame, end_frame, event_frame, alert_frame) 
@@ -119,7 +137,7 @@ def main():
         except Exception as e:
             print(f"Error processing {int(row.id):05d}.mp4: {e}")
     extracted_df = pd.DataFrame(extracted_df)
-    extracted_df.to_csv('dataset/extracted_train.csv', index = False)
+    extracted_df.to_csv(f'{output_dir}/{args.dataset}_extracted_clips.csv', index = False)
  
 if __name__ == "__main__":
     main()
