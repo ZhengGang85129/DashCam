@@ -97,23 +97,36 @@ Structure:
     ...
 ```
 
-## Training (To-Be-Done)
+## Step 3. Training (To-Be-Done)
 Simple command-line example:
 ```
 python3 train.py configs/baseline.yaml
 ```
 
-## Analysis Visualization 
-### Probability distribution across frame indices
+## Step 4. Analysis Visualization 
+
+<img src="example/probability.png" alt="Description of the image" width="500"/>
+
+### Step 4.1 Probability distribution across frame indices
+
 ```
 python3 ./accident_prediction_vis.py --clip_path dataset/train/train_video/00043.mp4 --model_ckpt CHECKPOINT --filename probability --model_type [baseline:timesformer:swintransformer]
 ```
-### Likelihood & Recall vs Precision curve:
+
+### Step 4.2 Likelihood & Recall vs Precision curve:
+<table>
+  <tr>
+    <td><img src="example/precision-recall.png" alt="Precision-Recall" width="400"/></td>
+    <td><img src="example/likelihood.png" alt="Likelihood function" width="400"/></td>
+  </tr>
+</table>
+
+
 ```
 python3 ./score_assessment.py --model_ckpt <path_to_modelckpt> --num_workers 8
 ```
 
-## Inference
+## Step 5. Inference
 ```
 python3 ./submission.py --num_workers 8 --model_ckpt <path_to_your_ckpt> --model_type baseline
 kaggle competitions submit -c nexar-collision-prediction -f submission.csv -m "Message"
