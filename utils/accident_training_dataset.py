@@ -60,7 +60,6 @@ class PreAccidentTrainingDataset(Dataset):
                 self.data_frame[self.data_frame['id'] == Index]['start_frame'].item(), 
                 self.data_frame[self.data_frame['id'] == Index]['end_frame'].item(), 
                 self.data_frame[self.data_frame['id'] == Index]['event_frame'].item())
-                if 
                 global_index += 1 
         if not self.video_files:
             raise RuntimeError(f"No MP4 files found in {root_dir}")
