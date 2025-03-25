@@ -90,10 +90,10 @@ def get_video_info(video_path: str) -> Dict[str, Union[float, int, str, cv2.Vide
 
 if __name__ == "__main__":
     
-    validation_dataset_csv = f'./dataset/validation_videos.csv'
+    validation_dataset_csv = f'./dataset/sliding_window/validation_videos.csv'
     
     dataframe = pd.read_csv(validation_dataset_csv)
-    output_dir = './dataset/train/validation_video/'
+    output_dir = 'dataset/sliding_window/evaluation'
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
      
