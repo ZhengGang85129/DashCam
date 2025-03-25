@@ -103,8 +103,8 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         # Use the standard dataset if augmentation is disabled
         logger.info("Using standard PreAccidentTrainDataset without augmentation")
         train_dataset = PreAccidentTrainingDataset(
-            root_dir="./dataset/sliding_window/train",
-            csv_file='./dataset/sliding_window/train_extracted_clips.csv',
+            root_dir = args.training_dir,
+            csv_file= args.training_csv,
             num_frames = 16,
             frame_window = 16,
             interested_interval = 100,
@@ -132,8 +132,8 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         return train_loader, None
     
     val_dataset = PreAccidentTrainingDataset(
-        root_dir = f'./dataset/sliding_window/validation',
-        csv_file = './dataset/sliding_window/validation_extracted_clips.csv',
+        root_dir = args.validation_dir,
+        csv_file = args.validation_csv,
         num_frames = 16,
         frame_window = 16,
         interested_interval = 100,
@@ -155,8 +155,8 @@ def get_eval_dataloaders(args, logger) -> Dict[str, torch.utils.data.DataLoader]
     logger.info('Loading the evaluation dataset with multiple pre-accident time intervals (500ms, 1000ms, and 1500ms).')
     for pre_accident_time in ['500', '1000', '1500']:
         val_dataset = PreAccidentValidationDataset(
-            root_dir = f'./dataset/sliding_window/evaluation//tta_{pre_accident_time}ms',
-            csv_file = './dataset/sliding_window/validation_videos.csv'
+            root_dir = f'{args.evaluation_dir}/tta_{pre_accident_time}ms',
+            csv_file = args.evaluation_csv 
         )
         # For validation, always use the standard dataset (no augmentation)
     
@@ -374,7 +374,7 @@ def main():
         print(f"Global augmentation probability: {args.augmentation_prob}")
 
     BATCH_SIZE = args.batch_size
-    PRINT_FREQ = 4
+    PRINT_FREQ = args.print_freq
     EPOCHS= args.epochs
     LR_RATE = args.learning_rate
     DEBUG = args.debug # debug mode if --debug is added
@@ -397,7 +397,7 @@ def main():
     logger.info(f"Total number of parameters in model: {np}")
     logger.info("Trainable Architecture Components:")
     print_trainable_parameters(model, logger = logger)
-    Loss_fn = TemporalBinaryCrossEntropy(decay_coefficient = 30) 
+    Loss_fn = TemporalBinaryCrossEntropy(decay_coefficient = args.decay_coefficient) 
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     logger.info("=> Creating optimizer")
     logger.info(f"Set up optimizer: {args.optimizer}")
