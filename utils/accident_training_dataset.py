@@ -52,10 +52,15 @@ class PreAccidentTrainingDataset(Dataset):
                 root_dir, f'{Index:05d}.mp4'
             )
             if os.path.isfile(file):
+                start_frame = self.data_frame[self.data_frame['id'] == Index]['start_frame'].item()
+                end_frame = self.data_frame[self.data_frame['id'] == Index]['end_frame'].item()
+                if end_frame - start_frame + 1 < self.interested_interval + self.frame_window - 1:
+                    continue  
                 self.video_files[global_index] = (file, self.data_frame[self.data_frame['id'] == Index]['target'].item(), 
                 self.data_frame[self.data_frame['id'] == Index]['start_frame'].item(), 
                 self.data_frame[self.data_frame['id'] == Index]['end_frame'].item(), 
                 self.data_frame[self.data_frame['id'] == Index]['event_frame'].item())
+                if 
                 global_index += 1 
         if not self.video_files:
             raise RuntimeError(f"No MP4 files found in {root_dir}")
