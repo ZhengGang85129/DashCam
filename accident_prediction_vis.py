@@ -19,7 +19,7 @@ from models.model import get_model
 [usage] python3 ./accident_prediction_vis.py --clip_path dataset/train/train_video/00043.mp4 --model_ckpt CHECKPOINT --filename probability --model_type [baseline:timesformer:swintransformer]
 '''
 
-def argument_parser() -> argparse.ArgumentParser:
+def my_parser() -> argparse.ArgumentParser:
     parser = parse_args('prob_vis') 
     parser.add_argument('--clip_path', type = str, help = 'the extracted clip path.')
     parser.add_argument('--model_ckpt', type = str, help = 'check point path to the model')
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     #Idx = int(sys.argv[1]) 
     global device, args
     device = get_device()
-    args = parse_args()
+    args = my_parser()
     print('Video loading')
     print('Create model')
     model = load_model(args.model_ckpt)
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     for i in range(10):
         output = model(window_stacks[i* 10: (i + 1) * 10])
         target = torch.ones((10)).to(torch.long)
-        prob = F.softmax(output, dim = 1)
+        prob = F.softmax(output, dim = 1).detach().numpy()
         probs += prob[:, 1].tolist()
     
     frame_indices = [i for i in range(100)]
@@ -158,7 +158,7 @@ if __name__ == "__main__":
         ax.imshow(denormalize(window_stacks[i* 10, 15]).permute(1, 2, 0))
         ax.axis('off')
     ax_prob = fig.add_subplot(gs[1, :])
-    ax_prob.plot(frame_indices, prob, 'r--')
+    ax_prob.plot(frame_indices, probs, 'r--')
     ax_prob.set_xlabel('Frame Index')
     ax_prob.set_ylabel('Probability')
     ax_prob.set_ylim(0, 1)
