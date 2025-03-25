@@ -100,7 +100,7 @@ Structure:
 ## Training (To-Be-Done)
 Simple command-line example:
 ```
-python3 train.py --batch_size <batch_size> --learning_rate <learning_rate> --monitor_dir <monitor_dir> 
+python3 train.py configs/baseline.yaml
 ```
 
 ## Analysis Visualization 
