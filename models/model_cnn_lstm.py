@@ -55,4 +55,4 @@ class CNN_LSTM(nn.Module):
         # Classify each time step
         scores = self.fc(out)  # (batch_size, n_frames, 2)
 
-        return scores, (hn, cn)
+        return scores[:, -1, :]   #, (hn, cn)
