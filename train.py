@@ -336,21 +336,23 @@ def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: t
     model.eval()
     logger.info('===> Processing mean averaged precision (mAP) with multiple pre-accident time intervals.')
     mAP = 0
-    for pre_accident_time in ['500', '1000', '1500']:
-        logger.info(f'Processing with pre-accident time intervals: {pre_accident_time} ms...')
-        outputs = []
-        targets = []
-        for data in val_loaders[pre_accident_time]:
-            X, y = data
-            X = X.to(device)
-            y = y.to(device)
-            output = model(X)
-            prob = F.softmax(output, dim = 1)
-            outputs += prob[:, 1].tolist()
-            targets += y.tolist()
-        outputs = torch.tensor(outputs).to('cpu')
-        targets = torch.tensor(targets).to('cpu')
-        mAP += average_precision_score(targets, outputs)
+    with torch.no_grad():
+        for pre_accident_time in ['500', '1000', '1500']:
+            logger.info(f'Processing with pre-accident time intervals: {pre_accident_time} ms...')
+            outputs = []
+            targets = []
+            for data in val_loaders[pre_accident_time]:
+                X, y = data
+                X = X.to(device)
+                y = y.to(device)
+                with autocast(device_type = device.type):
+                    output = model(X)
+                prob = F.softmax(output, dim = 1)
+                outputs += prob[:, 1].tolist()
+                targets += y.tolist()
+            outputs = torch.tensor(outputs).to('cpu')
+            targets = torch.tensor(targets).to('cpu')
+            mAP += average_precision_score(targets, outputs)
     mAP = float(mAP/3)
     logger.info(f'===> Current mean averaged precision: {mAP}')
     return mAP
