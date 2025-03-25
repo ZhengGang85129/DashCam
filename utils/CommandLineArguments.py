@@ -51,5 +51,12 @@ def train_parse_args() -> argparse.ArgumentParser:
                         default = 'radam',
                         help = 'option of optimizer(default: radam)'
                         )
+    parser.add_argument('--print_freq', type = int, default = 4, help = 'Frequency for printing')
+    parser.add_argument('--training_dir', type = str, help = 'folder for extracted train directory') 
+    parser.add_argument('--training_csv', type = str, help = 'extracted clip csv file for training dataset')
+    parser.add_argument('--validation_dir', type = str, help = 'extracted clip folder for validation dataset')
+    parser.add_argument('--validation_csv', type = str, help = 'extracted clip csv file for validation dataset')
+    parser.add_argument('--evaluation_dir', type = str, help = 'extracted clip folder evaluatio  dataset')
+    parser.add_argument('--evaluation_csv', type = str, help = 'extracted clip csv file for evaluation dataset')
     _args = parser.parse_args()
     return _args

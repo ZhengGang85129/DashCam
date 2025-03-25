@@ -19,7 +19,16 @@ class Args:
 
         self.model_dir              =       confDICT.get('model_dir', 'model_ckpt')
         self.debug                  =  bool(confDICT['debug']) if 'debug' in confDICT else False
-
+        self.print_freq = int(confDICT.get('print_freq', 4))
+        self.decay_coefficient = float(confDICT.get('decay_coefficient', 30))
+        
+        self.training_dir = str(confDICT.get('training_dir', None))
+        self.validation_dir = str(confDICT.get('validation_dir', None))
+        self.evaluation_dir = str(confDICT.get('evaluation_dir', None))
+        self.training_csv = str(confDICT.get('training_csv', None))
+        self.validation_csv = str(confDICT.get('validation_csv', None))
+        self.evaluation_csv = str(confDICT.get('evaluation_csv', None))
+         
         if self.augmentation_types is None:
             pass ### if nothing set. use default value
         else:
