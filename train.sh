@@ -16,6 +16,14 @@ if [ -z "$aug_prob" ]; then
     aug_prob=0.25
 fi
 
+######### test region ############
+echo "\n\n\n[TestingYamlInput] START"
+python3 train.py train.defaultargs.yaml
+echo "\n\n\n[TestingYamlInput] ENDED"
+exit
+echo "Comment this test region to use original arg parse"
+######### test region ended ######
+
 # Set up augmentation arguments
 if [ "$aug_types" = "-" ] || [ -z "$aug_types" ]; then
     # No augmentation if aug_types is empty

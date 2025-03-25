@@ -22,65 +22,20 @@ import argparse
 from torchvision import transforms
 import torch.nn.functional as F
 from datetime import datetime
+from models.model import DSA_RNN
+from models.model import baseline_model
+from utils.YamlArguments import load_yaml_file_from_arg
+from utils.CommandLineArguments import train_parse_args
+
+
+
 from models.model import get_model
-from utils.misc import parse_args
 from utils.optim import get_optimizer
 from utils.loss import AnticipationLoss, TemporalBinaryCrossEntropy
 from torch.amp import autocast, GradScaler
 from utils.stats import case_counting
 from sklearn.metrics import average_precision_score
 
-def train_parse_args() -> argparse.ArgumentParser:
-    parser = parse_args(parser_name = 'Training')
-    parser.add_argument('--monitor_dir',
-                        type=str, default='monitor_train',
-                        help='directory to save monitoring plots (default: ./train)')
-    parser.add_argument('--learning_rate',
-                        type=float,
-                        default=0.0001,
-                        help='learning rate (default: 0.0001)')
-    parser.add_argument('--epochs',
-                        type=int, default=20,
-                        help='number of epochs to train (default: 20)')
-    parser.add_argument('--batch_size',
-                        type=int,
-                        default=10,
-                        help='batch size for training (default: 10)')
-    parser.add_argument('--num_workers',
-                        type=int,
-                        default = 4,
-                        help='number of workers (default: 4)')
-
-    # Augmentation arguments
-    parser.add_argument('--augmentation_types',
-                        nargs='+',
-                        help='''List of augmentation types to use.
-                                Valid options: "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect"
-                                If specified, augmentation is enabled.
-                                Example: --augmentation_types fog noise horizontal_flip''')
-    parser.add_argument('--augmentation_prob',
-                        type=float,
-                        default=0.25,
-                        help='Probability of applying augmentation to a video (default: 0.25)')
-    parser.add_argument('--horizontal_flip_prob',
-                        type=float,
-                        default=0.5,
-                        help='Probability of flipping a video horizontally (default: 0.5)')
-    #model argument
-    parser.add_argument('--model_type', 
-                        type = str,
-                        default = 'baseline',
-                        help = 'Type of model (default: baseline)',
-                        choices = ['timesformer', 'baseline', 'accidentxai', 'swintransformer']
-                        )
-    #optimizer argument
-    parser.add_argument('--optimizer',
-                        type = str,
-                        default = 'radam',
-                        help = 'option of optimizer(default: radam)'
-                        )
-    _args = parser.parse_args()
-    return _args
 
 def get_logger() -> logging.Logger:
     logger_name = "Dashcam-Logger"
@@ -288,6 +243,9 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
                         f'Acc {(TP_meter.current_value + TN_meter.current_value)/(true_meter.current_value + false_meter.current_value) + EPS:.3f} ({(TP_meter.sum + TN_meter.sum)/(true_meter.sum + false_meter.sum + EPS):.3f})'
                         )
         start = time.time()
+        if DEBUG:
+            print(f'[DEBUGMODE] Main Loop broken due to args.debug')
+            break
 
 
     return {'mPrec': (TP_meter.sum)/(TP_meter.sum + FP_meter.sum  + EPS),
@@ -400,9 +358,14 @@ def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: t
 
 
 def main():
-    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER
 
-    args = train_parse_args()
+    global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER, STATS_MODE
+    import sys
+    use_yaml_file = len(sys.argv) == 1+1 and '.yaml' in sys.argv[1]
+
+    args = load_yaml_file_from_arg(sys.argv[1]) if use_yaml_file else train_parse_args()
+
+
     print(f"Training with batch size: {args.batch_size}")
     print(f"Learning rate: {args.learning_rate}")
     print(f"Number of epochs: {args.epochs}")

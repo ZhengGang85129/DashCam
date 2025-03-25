@@ -1,10 +1,12 @@
 model/
+model_*/
 train/
 hub/
 .vscode/
 videos/
 eval/
 dataset/
+dataset
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -178,3 +180,12 @@ cython_debug/
 .pypirc
 .swanproject
 *123.png
+
+# VIM tmp files
+.*.swp
+.*.swo
+
+# condor logs
+matrix.*.err
+matrix.*.out
+matrix.*.log
