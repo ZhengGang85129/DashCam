@@ -148,8 +148,8 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         # Use the standard dataset if augmentation is disabled
         logger.info("Using standard PreAccidentTrainDataset without augmentation")
         train_dataset = PreAccidentTrainingDataset(
-            root_dir="./dataset/train/train_video",
-            csv_file='./dataset/extracted_train.csv',
+            root_dir="./dataset/sliding_window/train",
+            csv_file='./dataset/sliding_window/train_extracted_clips.csv',
             num_frames = 16,
             frame_window = 16,
             interested_interval = 100,
@@ -177,8 +177,8 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         return train_loader, None
     
     val_dataset = PreAccidentTrainingDataset(
-        root_dir = f'dataset/train/validation_video/',
-        csv_file = './dataset/extracted_val.csv',
+        root_dir = f'./dataset/sliding_window/validation',
+        csv_file = './dataset/sliding_window/validation_extracted_clips.csv',
         num_frames = 16,
         frame_window = 16,
         interested_interval = 100,
@@ -200,8 +200,8 @@ def get_eval_dataloaders(args, logger) -> Dict[str, torch.utils.data.DataLoader]
     logger.info('Loading the evaluation dataset with multiple pre-accident time intervals (500ms, 1000ms, and 1500ms).')
     for pre_accident_time in ['500', '1000', '1500']:
         val_dataset = PreAccidentValidationDataset(
-            root_dir = f'dataset/train/validation_video/tta_{pre_accident_time}ms',
-            csv_file = 'dataset/validation_videos.csv'
+            root_dir = f'./dataset/sliding_window/evaluation//tta_{pre_accident_time}ms',
+            csv_file = './dataset/sliding_window/validation_videos.csv'
         )
         # For validation, always use the standard dataset (no augmentation)
     
@@ -393,7 +393,7 @@ def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: t
         outputs = torch.tensor(outputs).to('cpu')
         targets = torch.tensor(targets).to('cpu')
         mAP += average_precision_score(targets, outputs)
-    mAP = mAP/3
+    mAP = float(mAP/3)
     logger.info(f'===> Current mean averaged precision: {mAP}')
     return mAP
      
