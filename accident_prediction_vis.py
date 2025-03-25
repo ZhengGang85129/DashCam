@@ -12,7 +12,21 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from matplotlib.gridspec import GridSpec
 import sys
+from utils.misc import parse_args
+import argparse
+from models.model import get_model
+'''
+[usage] python3 ./accident_prediction_vis.py --clip_path dataset/train/train_video/00043.mp4 --model_ckpt CHECKPOINT --filename probability --model_type [baseline:timesformer:swintransformer]
+'''
 
+def argument_parser() -> argparse.ArgumentParser:
+    parser = parse_args('prob_vis') 
+    parser.add_argument('--clip_path', type = str, help = 'the extracted clip path.')
+    parser.add_argument('--model_ckpt', type = str, help = 'check point path to the model')
+    parser.add_argument('--model_type', type = str)
+    parser.add_argument('--filename', type = str, default = 'probability')
+    _args = parser.parse_args()
+    return _args
 def denormalize(tensor, mean = [0.43216, 0.394666, 0.37645], std = [0.22803, 0.22145, 0.216989]):
     """
     Denormalizes a tensor that was normalized with mean and std.
@@ -31,8 +45,9 @@ def denormalize(tensor, mean = [0.43216, 0.394666, 0.37645], std = [0.22803, 0.2
     
     # Denormalize: multiply by std and add mean (inverse of normalization)
     return tensor * std + mean
+
 def load_model(state_path: Optional[str] = None) -> nn.Module:
-    model = baseline_model()
+    model = get_model(model_type = args.model_type)() 
     if state_path is None:
         raise FileNotFoundError(f"The state_dict is None.")
     elif not os.path.isfile(state_path):
@@ -105,16 +120,16 @@ def frame_swin(video_path: str,
 
 
 if __name__ == "__main__":
-    Idx = int(sys.argv[1]) 
-    global device
+    #Idx = int(sys.argv[1]) 
+    global device, args
     device = get_device()
-    print('video loading')
-    print(Idx) 
+    args = parse_args()
+    print('Video loading')
     print('Create model')
-    model = load_model('./frame_sampling-lr0p0001/model_ckpt-epoch08_bs10_lr0.0001.pt')
+    model = load_model(args.model_ckpt)
     model.eval()
     
-    video_path = f'./dataset/train/train_video/{Idx:05d}.mp4' 
+    video_path = args.clip_path 
     window_stacks = frame_swin(video_path = video_path, 
                 num_frames = 16,
                 frame_window = 16, 
@@ -122,9 +137,9 @@ if __name__ == "__main__":
                 resize_shape= (128, 171),
                 crop_size= (112, 112)) # Apply sliding-window approach to extract sequential frame sequences from the input video.
     
-    print(window_stacks.shape) #96 x 16 x 3 x 112 x 112
+    print('Sliding Window size: ', window_stacks.shape) #96 x 16 x 3 x 112 x 112
 
-    print('inference')
+    print('Inferencing...')
     probs = []
     T_diffs  = torch.tensor([90 - i for i in range(90)] + [-1, -2, -3, -4, -5, -6, -7, -8, -9, -10])
     for i in range(10):
@@ -157,4 +172,8 @@ if __name__ == "__main__":
     
     plt.legend() 
     plt.tight_layout()
-    plt.savefig(f'{Idx:05d}.png')
+    os.makedirs('visualization', exist_ok = True)
+    plt.savefig(f'visualization/{args.filename}.png')
+    plt.savefig(f'visualization/{args.filename}.pdf')
+    print(f'Check=> visualization/{args.filename}.pdf')
+    print(f'Check=> visualization/{args.filename}.png')
