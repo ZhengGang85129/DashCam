@@ -8,14 +8,14 @@ import os
 import math
 import numpy as np
  
-class PreAccidentValidationDataset(Dataset):
+class PreAccidentInferenceDataset(Dataset):
     '''
     The sampling approach is the sliding window.
     '''
     def __init__(
         self,
-        root_dir: str = 'dataset/train/validation_video',
-        csv_file: str = './dataset/validation_videos.csv',
+        root_dir: str = 'dataset/test',
+        csv_file: str = './dataset/test.csv',
         num_frames: int = 16,
         frame_window: int = 16,
         resize_shape: Tuple[int, int] = (128, 171),
@@ -56,7 +56,7 @@ class PreAccidentValidationDataset(Dataset):
                 root_dir, f'{Index:05d}.mp4'
             )
             if os.path.isfile(file):
-                self.video_files[global_index] = (file, self.data_frame[self.data_frame['id'] == Index]['target'].item())
+                self.video_files[global_index] = (file, Index)
                 global_index += 1 
         if not self.video_files:
             raise RuntimeError(f"No MP4 files found in {root_dir}")
@@ -74,7 +74,7 @@ class PreAccidentValidationDataset(Dataset):
         # Calculate interval
         interval = math.floor(self.frame_window / self.num_frames)
         end_frame = total_frames - 1
-        start_frame = 0
+        start_frame = end_frame - (interval) * (self.num_frames - 1)
         frames_saved = 0
         frames = []
         
@@ -99,17 +99,17 @@ class PreAccidentValidationDataset(Dataset):
         Args:
             idx: index for the video.
         Reture:
-            frames(batch_size, num_frames, n_channels, height, width): Tensor containing video frames with dimensions representing batch samples, temporal sequence, color channels, and spatial resolution.
-            target(batch_size): Binary indicator of whether each frame originates from a video containing an accident.
+            frames(batch_size, num_frames, n_channels, height, width): Tensor containing video frames with dimensions representing batch samples, temporal sequence, color channels, and spatial resolution. 
+            Idx(batch_size): Video Id.
         """ 
-        video_path, target = self.video_files[idx]
+        video_path, Idx = self.video_files[idx]
         frames = self.__load_video(video_path)
         frames = torch.stack(frames, dim = 1).permute(1, 0, 2, 3) 
-        return frames, target
+        return frames, Idx
 
 
 if __name__ == '__main__':
-    tta_dataset = PreAccidentValidationDataset(
+    tta_dataset = PreAccidentInferenceDataset(
         root_dir = 'dataset/train/validation_video/tta_500ms/',
         csv_file = 'dataset/validation_videos.csv',
         num_sample_frames = 16,
