@@ -13,6 +13,7 @@ from tqdm import tqdm
 import argparse
 from models.model import get_model
 '''
+[usage] python3 ./submission.py --num_workers 8 --model_ckpt <path_to_your_ckpt> --model_type baseline
 kaggle competitions submit -c nexar-collision-prediction -f submission.csv -m "Message"
 '''
 
