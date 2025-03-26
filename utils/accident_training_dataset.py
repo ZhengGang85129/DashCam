@@ -21,7 +21,10 @@ class PreAccidentTrainingDataset(Dataset):
         frame_window: int = 16,
         interested_interval: int = 100,
         resize_shape: Tuple[int, int] = (128, 171),
-        crop_size: Tuple[int, int] = (112, 112)
+        crop_size: Tuple[int, int] = (112, 112),
+        augmentation_config: Optional[Dict[str, bool]] = None,
+        global_augment_prob: float = 0.25,
+        horizontal_flip_prob: float = 0.5
     ):
         self.root_dir = root_dir
         self.data_frame = pd.read_csv(csv_file)
@@ -45,7 +48,24 @@ class PreAccidentTrainingDataset(Dataset):
                 
             ]
         )
-        
+
+        self.global_augment_prob = global_augment_prob
+        self.horizontal_flip_prob = horizontal_flip_prob
+        self.aug_config = {
+            'fog': False,
+            'noise': False,
+            'gaussian_blur': False,
+            'color_jitter': False,
+            'horizontal_flip': False,
+            'rain_effect': False,
+        }
+
+        # Use specified augmentation effects if provided
+        if augmentation_config:
+            self._validate_config(augmentation_config)
+            for key, value in augmentation_config.items():
+                if key in self.aug_config:
+                    self.aug_config[key] = value
         
         for Index in self.video_indices:
             file = os.path.join(
@@ -63,6 +83,7 @@ class PreAccidentTrainingDataset(Dataset):
                 global_index += 1 
         if not self.video_files:
             raise RuntimeError(f"No MP4 files found in {root_dir}")
+
     def __len__(self) -> int:
         return len(self.video_files)
     
@@ -74,7 +95,56 @@ class PreAccidentTrainingDataset(Dataset):
         video = cv2.VideoCapture(video_path)
         total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
          
+        # Step 1: Decide whether to augment this video at all
+        apply_augmentation = random.random() < self.global_augment_prob
+        any_augmentations_enabled = any([self.aug_config[key] for key in self.aug_config if key != 'horizontal_flip'])
+        apply_augmentation = apply_augmentation and any_augmentations_enabled
+        apply_horizontal_flip = self.aug_config['horizontal_flip'] and random.random() < self.horizontal_flip_prob
+        video_transforms = []
+
+        if apply_augmentation:
+            apply_fog = self.aug_config['fog']
+            apply_noise = self.aug_config['noise']
+            apply_gaussian_blur = self.aug_config['gaussian_blur']
+            apply_color_jitter = self.aug_config['color_jitter']
+            apply_rain = self.aug_config['rain_effect']
+
+            # Configure the effects that will be applied
+            if apply_gaussian_blur:
+                # Use same blur parameters for all frames
+                sigma = random.uniform(0.1, 1.0)
+                gaussian_blur = transforms.GaussianBlur(kernel_size=3, sigma=sigma)
+                video_transforms.append(gaussian_blur)
+
+            if apply_color_jitter:
+                # Use same color parameters for all frames
+                brightness = random.uniform(0.8, 1.2)
+                contrast = random.uniform(0.8, 1.2)
+                saturation = random.uniform(0.8, 1.2)
+                hue_range = (0.0, 0.1)  # This is valid: range from 0 to 0.1 shift
+                color_jitter = transforms.ColorJitter(
+                    brightness=brightness,
+                    contrast=contrast,
+                    saturation=saturation,
+                    hue=hue_range
+                )
+                video_transforms.append(color_jitter)
+
+            # For rain effect, pre-generate parameters
+            if apply_rain:
+                rain_drop_length = random.randint(1, 5)
+                rain_drop_count = random.randint(10, 40)
+
+            # For fog effect, pre-generate parameters
+            if apply_fog:
+                fog_intensity = random.uniform(0.1, 0.2)
+
+            # For noise effect, pre-generate parameters
+            if apply_noise:
+                noise_factor = random.uniform(0.01, 0.03)
+
         
+        # Load and process frames
         selected_frame = random.randint(0, self.interested_interval - 1) + (self.num_frames - 1) * interval # Randomly select a frame as the 'current frame'. 
         start_frame = selected_frame - (self.num_frames  - 1)* interval  # Indices falling within the range [start_frame, current_frame] represent past frames.
         frames_saved = 0
@@ -92,6 +162,30 @@ class PreAccidentTrainingDataset(Dataset):
             count += 1
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)#shape: (720, 1280, 3)
             frame = self.transforms(frame) #shape: (3, 112, 112)
+
+            # Apply transformations if we're augmenting
+            if apply_augmentation:
+                for transform in video_transforms:
+                    frame_tensor = transform(frame_tensor)
+
+                if apply_fog:
+                    frame_tensor = self._add_fog(frame_tensor, fog_intensity=fog_intensity)
+
+                if apply_noise:
+                    frame_tensor = self._add_noise(frame_tensor, noise_factor=noise_factor)
+
+                if apply_rain:
+                    frame_tensor = self._simulate_rain(
+                        frame_tensor,
+                        drop_length=rain_drop_length,
+                        drop_count=rain_drop_count,
+                        seed=i  # Use frame index for consistent but varied rain
+                    )
+
+            # Apply horizontal flip separately
+            if apply_horizontal_flip:
+                frame_tensor = torch.flip(frame_tensor, dims=[2])
+
             frames_saved += 1
             frames.append(frame)
             if count > self.num_frames:
@@ -122,6 +216,87 @@ class PreAccidentTrainingDataset(Dataset):
         frames = torch.stack(frames, dim = 1).permute(1, 0, 2, 3)
         return frames, target, T_diff
 
+    def _validate_config(self, config: Dict[str, bool]) -> None:
+        """ Validate the augmentation configuration dictionary. """
+        valid_keys = set(self.aug_config.keys())
+        for key, value in config.items():
+            if key not in valid_keys:
+                raise ValueError(f"Unknown augmentation type: {key}. "
+                                f"Valid options are: {', '.join(valid_keys)}")
+            if not isinstance(value, bool):
+                raise ValueError(f"Augmentation config values must be boolean, got {type(value)} for {key}")
+
+    def _add_noise(self, img: torch.Tensor, noise_factor: float = 0.1) -> torch.Tensor:
+        """
+        Add random noise to an image tensor.
+
+        Args:
+            img (torch.Tensor): Input image tensor of shape [C, H, W]
+            noise_factor (float): Intensity of the noise to add
+
+        Returns:
+            torch.Tensor: Noisy image tensor
+        """
+        noise = torch.randn_like(img) * noise_factor
+        noisy_img = img + noise
+        return torch.clamp(noisy_img, 0., 1.)
+
+    def _add_fog(self, img: torch.Tensor, fog_intensity: float = 0.3) -> torch.Tensor:
+        """
+        Simulate fog effect by adding a bright overlay with reduced contrast.
+
+        Args:
+            img (torch.Tensor): Input image tensor of shape [C, H, W]
+            fog_intensity (float): Intensity of the fog effect (0-1)
+
+        Returns:
+            torch.Tensor: Image tensor with fog effect
+        """
+        fog = torch.ones_like(img) * fog_intensity
+        foggy_img = img * (1 - fog_intensity) + fog
+        return torch.clamp(foggy_img, 0., 1.)
+
+    def _simulate_rain(img: torch.Tensor, drop_length: int = 20, drop_width: int = 1,
+                     drop_count: int = 20, seed: Optional[int] = None) -> torch.Tensor:
+        """
+        Simulate rain by adding random streaks to an image.
+
+        Args:
+            img (torch.Tensor): Input image tensor of shape [C, H, W]
+            drop_length (int): Length of rain drops
+            drop_width (int): Width of rain drops (default: 1)
+            drop_count (int): Number of rain drops to add
+            seed (int, optional): Random seed for reproducible rain patterns
+
+        Returns:
+            torch.Tensor: Image tensor with rain effect
+        """
+        c, h, w = img.shape
+        rain_img = img.clone()
+
+        # Set random seed if provided to ensure consistency across frames
+        if seed is not None:
+            random.seed(seed)
+
+        for _ in range(drop_count):
+            x = random.randint(0, w-1)
+            y = random.randint(0, h-drop_length-1)
+
+            # Add a white streak
+            rain_value = torch.ones(c, drop_length, drop_width) * 0.8
+
+            # Ensure we don't go out of bounds
+            end_y = min(y + drop_length, h)
+            end_x = min(x + drop_width, w)
+
+            # Add the rain drop
+            rain_img[:, y:end_y, x:end_x] = rain_img[:, y:end_y, x:end_x] * 0.2 + rain_value[:, :end_y-y, :end_x-x]
+
+        # Reset random seed to avoid affecting other code
+        if seed is not None:
+            random.seed()
+
+        return torch.clamp(rain_img, 0., 1.)
 
 if __name__ == '__main__':
     train_dataset = PreAccidentTrainingDataset(
@@ -144,4 +319,3 @@ if __name__ == '__main__':
         X, y, T = data
         #print(X.shape, y.shape, T.shape)
         #print(T)
-          
