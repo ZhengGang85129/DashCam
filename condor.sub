@@ -3,7 +3,7 @@
 
 
 #### FIXME
-working_dir             = /afs/cern.ch/user/l/ltsai/Work/DashCam
+working_dir             = /eos/user/y/ykao/SWAN_projects/kaggle/DashCam
 
 executable              = train.acceptYAML.sh
 arguments               = $(yaml_file) $(working_dir)
@@ -19,7 +19,8 @@ getenv = PYTHONPATH
 
 # # Create a queue for each combination
 queue job_label, yaml_file from (
-        test             data/input.test.yaml
+        baseline          configs/baseline_ywk.yaml
+#        test             data/input.test.yaml
 #        none             data/input.none.yaml
 #        fog              data/input.fog.yaml
 #        noise            data/input.noise.yaml
