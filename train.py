@@ -70,47 +70,37 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         train_dataloader(torch.utils.data.DataLoader)
         val_dataloader(torch.utils.data.DataLoader)
     '''
-    # Check if augmentation_types is provided - this means use augmentation
-    if args.augmentation_types is not None and len(args.augmentation_types) > 0:
-        # Configure augmentations based on augmentation_types argument
-        aug_config = {
-            'fog': 'fog' in args.augmentation_types,
-            'noise': 'noise' in args.augmentation_types,
-            'gaussian_blur': 'gaussian_blur' in args.augmentation_types,
-            'color_jitter': 'color_jitter' in args.augmentation_types,
-            'horizontal_flip': 'horizontal_flip' in args.augmentation_types,
-            'rain_effect': 'rain_effect' in args.augmentation_types,
-        }
+    # Configure augmentations based on augmentation_types argument
+    aug_config = {
+        'fog': 'fog' in args.augmentation_types,
+        'noise': 'noise' in args.augmentation_types,
+        'gaussian_blur': 'gaussian_blur' in args.augmentation_types,
+        'color_jitter': 'color_jitter' in args.augmentation_types,
+        'horizontal_flip': 'horizontal_flip' in args.augmentation_types,
+        'rain_effect': 'rain_effect' in args.augmentation_types,
+    }
 
-        # Log which augmentations will be used
-        enabled_effects = [k for k, v in aug_config.items() if v]
-        logger.info(f"Using AugmentedVideoDataset with augmentations: {enabled_effects}")
-        logger.info(f"Global augmentation probability: {args.augmentation_prob}")
-        if aug_config['horizontal_flip']:
-            logger.info(f"Horizontal flip probability: {args.horizontal_flip_prob}")
+    # Log which augmentations will be used
+    enabled_effects = [k for k, v in aug_config.items() if v]
+    logger.info(f"Using AugmentedVideoDataset with augmentations: {enabled_effects}")
+    logger.info(f"Global augmentation probability: {args.augmentation_prob}")
+    if aug_config['horizontal_flip']:
+        logger.info(f"Horizontal flip probability: {args.horizontal_flip_prob}")
 
-        # Use the AugmentedVideoDataset for training
-        train_dataset = AugmentedVideoDataset(
-            root_dir="./dataset/train/",
-            csv_file='./dataset/train.csv',
-            num_frames = 16,  # Match the original implementation
-            augmentation_config=aug_config,
-            global_augment_prob=args.augmentation_prob,
-            horizontal_flip_prob=args.horizontal_flip_prob,
-            resize_shape = RESIZE_SHAPE
-        )
-    else:
-        # Use the standard dataset if augmentation is disabled
-        logger.info("Using standard PreAccidentTrainDataset without augmentation")
-        train_dataset = PreAccidentTrainingDataset(
-            root_dir = args.training_dir,
-            csv_file= args.training_csv,
-            num_frames = 16,
-            frame_window = 16,
-            interested_interval = 100,
-            resize_shape = (128, 171),
-            crop_size = (112, 112)
-        )
+    # Use the standard dataset if augmentation is disabled
+    logger.info("Using standard PreAccidentTrainDataset without augmentation")
+    train_dataset = PreAccidentTrainingDataset(
+        root_dir = args.training_dir,
+        csv_file= args.training_csv,
+        num_frames = 16,
+        frame_window = 16,
+        interested_interval = 100,
+        resize_shape = (128, 171),
+        crop_size = (112, 112),
+        augmentation_config=aug_config,
+        global_augment_prob=args.augmentation_prob,
+        horizontal_flip_prob=args.horizontal_flip_prob,
+    )
 
     # Handle debug mode
     if args.debug:
@@ -138,8 +128,11 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         frame_window = 16,
         interested_interval = 100,
         resize_shape = (128, 171),
-        crop_size = (112, 112)
+        crop_size = (112, 112),
+        global_augment_prob = 0.0,
+        horizontal_flip_prob = 0.0,
     )
+
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=args.batch_size,

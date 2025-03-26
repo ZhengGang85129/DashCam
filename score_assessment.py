@@ -23,6 +23,7 @@ def _parse_args() -> argparse.ArgumentParser:
     parser.add_argument('--model_type', type = str, required = True)
     parser.add_argument('--save_dir', type = str, default = './model_assessment', help = 'path to save your output result.(default: model_assessment)')
     parser.add_argument('--num_workers', type = int, default = 4, help = 'number of workers.(default: 4)')
+    parser.add_argument('--tag', type = str, default = None, help = 'additional tag to fig name') 
     args = parser.parse_args()  
     return args     
 
@@ -71,12 +72,13 @@ def plot_likelihood(preds:torch.Tensor, truth: torch.Tensor)-> None:
         plt.grid(alpha=0.3)
         plt.show()
         plt.legend()
-    output = os.path.join(args.save_dir, f'likelihood.png')
+
+    Tag = "" if args.tag is None else f"_{args.tag}"
+    output = os.path.join(args.save_dir, f'likelihood{Tag}.png')
     plt.savefig(output)
-    print(f'Check -> {output}')
-    output = os.path.join(args.save_dir, f'likelihood.pdf')
-    plt.savefig(output)
-    print(f'Check -> {output}')
+    print('Check -> ', output)
+    plt.savefig(output.replace('.png', '.pdf'))
+    print('Check -> ', output.replace('.png', '.pdf')) 
     return 
 
 def manual_precision_recall_curve(preds: Dict[str, np.array], targets: Dict[str, np.array], figsize: Tuple[int, int] = (10, 6)) -> None:
@@ -132,8 +134,8 @@ def manual_precision_recall_curve(preds: Dict[str, np.array], targets: Dict[str,
     plt.title('Precision-Recall Curve (Manual Calculation)')
     plt.legend(loc='lower left')
     plt.grid(True, linestyle='--', alpha=0.6)
-    output = os.path.join(args.save_dir, f'precision-recall.png') 
-    
+    Tag = "" if args.tag is None else f"_{args.tag}"
+    output = os.path.join(args.save_dir, f'precision-recall{Tag}.png') 
     plt.savefig(output)
     print('Check -> ', output)
     plt.savefig(output.replace('.png', '.pdf'))
@@ -192,23 +194,17 @@ def main():
     evaluation_folders = {
         'tta-500ms' : './dataset/sliding_window/evaluation/tta_500ms', 
         'tta-1000ms': './dataset/sliding_window/evaluation/tta_1000ms', 
-        'tta-1500ms':
-        './dataset/sliding_window/evaluation/tta_1500ms'
-        }
+        'tta-1500ms': './dataset/sliding_window/evaluation/tta_1500ms'
+    }
     preds = dict()
     truth = dict()
     for tag, folder in evaluation_folders.items(): 
         preds[tag], truth[tag] = inference(folder)
-        
-    
     
     os.makedirs(args.save_dir, exist_ok=True)
     plot_likelihood(preds = preds, truth = truth)
     manual_precision_recall_curve(preds = preds, targets = truth) 
     #eval(args.mode+'()')
-    
-    
-    
     
 if __name__ == "__main__":
     main() 
