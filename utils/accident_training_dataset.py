@@ -81,73 +81,60 @@ class PreAccidentTrainingDataset(Dataset):
                 self.data_frame[self.data_frame['id'] == Index]['end_frame'].item(), 
                 self.data_frame[self.data_frame['id'] == Index]['event_frame'].item())
                 global_index += 1 
+
         if not self.video_files:
             raise RuntimeError(f"No MP4 files found in {root_dir}")
 
     def __len__(self) -> int:
         return len(self.video_files)
     
-    def __load_video(self, video_path: str, event_frame: int) -> Tuple[List[torch.Tensor], int]:
-        
-        # Calculate interval
-        interval = math.floor(self.frame_window / self.num_frames) 
-        
-        video = cv2.VideoCapture(video_path)
-        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-         
-        # Determine augmentation parameters
-        augment_params = self._get_augmentation_params()
-
-        # Load and process frames
-        selected_frame = random.randint(0, self.interested_interval - 1) + (self.num_frames - 1) * interval # Randomly select a frame as the 'current frame'. 
-        start_frame = selected_frame - (self.num_frames  - 1)* interval  # Indices falling within the range [start_frame, current_frame] represent past frames.
-        frames_saved = 0
-        frames = []
-        
-        video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        count = 0
-        illed_frame = 0
-        for Idx, frame_index in enumerate(range(start_frame , selected_frame + interval, interval)):
-            success, frame = video.read()
-            if not success:
-                #print(frame_index)
-                illed_frame = frame_index
-                break
-            count += 1
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)#shape: (720, 1280, 3)
-            frame = self.transforms(frame) #shape: (3, 112, 112)
-
-            # Apply augmentations if enabled
-            frame = self._apply_augmentations(frame, augment_params, i)
-
-            frames_saved += 1
-            frames.append(frame)
-            if count > self.num_frames:
-                raise ValueError
-        
-        if frames_saved < self.num_frames:
-            print('not success')
-            print(f'video_path: {video_path}')
-            print(f'total saved frames: {frames_saved}. start frame: {selected_frame - (self.num_frames - 1) * interval}, end_frame: {selected_frame}, total_frame: {total_frames}, illed_frame: {illed_frame}')
-            #raise RuntimeError(f'total saved frames: {frames_saved}. start frame: {selected_frame - (self.num_frames - 1) * interval}, end_frame: {selected_frame}, total_frame: {total_frames}, illed_frame: {illed_frame}')
-                
-        video.release()
-        return frames, event_frame - selected_frame
-        
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Args:
             idx: index for the video.
         Reture:
             frames(batch_size, num_frames, n_channels, height, width): Tensor containing video frames with dimensions representing batch samples, temporal sequence, color channels, and spatial resolution.
             target(batch_size): whether the frames are from the video that contains the accident.
-            T_diff(batchsize): difference of selected frame to accident frame.
+            T_diff(batch_size): difference of selected frame to accident frame.
         """ 
         video_path, target, _, _, event_frame = self.video_files[idx]
-        #print(video_path, target, start_frame, end_frame)
-        frames, T_diff = self.__load_video(video_path, event_frame = event_frame)
-        #print(T_diff)
+        video = cv2.VideoCapture(video_path)
+        total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+         
+        # Calculate interval & Determine augmentation parameters
+        interval = math.floor(self.frame_window / self.num_frames) 
+        augment_params = self._get_augmentation_params()
+
+        # Load and process frames
+        selected_frame = random.randint(0, self.interested_interval - 1) + (self.num_frames - 1) * interval # Randomly select a frame as the 'current frame'. 
+        start_frame = selected_frame - (self.num_frames - 1) * interval # Indices falling within the range [start_frame, current_frame] represent past frames.
+        frames = []
+        
+        illed_frame = 0
+        video.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+        for Idx, frame_index in enumerate(range(start_frame , selected_frame + interval, interval)):
+            success, frame = video.read()
+            if not success:
+                illed_frame = frame_index
+                break
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # shape: (720, 1280, 3)
+            frame = self.transforms(frame) # shape: (3, 112, 112)
+            frame = self._apply_augmentations(frame, augment_params, Idx) # Apply augmentations if enabled
+            frames.append(frame)
+            if len(frames) >= self.num_frames:
+                break
+        video.release()
+
+        frames_saved = len(frames)
+        if frames_saved < self.num_frames:
+            print('[WARNING] not success')
+            print(f'video_path: {video_path}')
+            print(f'total saved frames: {frames_saved}. start frame: {selected_frame - (self.num_frames - 1) * interval}, end_frame: {selected_frame}, total_frame: {total_frames}, illed_frame: {illed_frame}')
+            #raise RuntimeError(f'total saved frames: {frames_saved}. start frame: {selected_frame - (self.num_frames - 1) * interval}, end_frame: {selected_frame}, total_frame: {total_frames}, illed_frame: {illed_frame}')
+                
         frames = torch.stack(frames, dim = 1).permute(1, 0, 2, 3)
+        target = torch.tensor(target)
+        T_diff = torch.tensor(event_frame - selected_frame)
         return frames, target, T_diff
 
     def _validate_config(self, config: Dict[str, bool]) -> None:
@@ -265,7 +252,7 @@ class PreAccidentTrainingDataset(Dataset):
         if seed is not None:
             random.seed()
 
-        return rain_img
+        return torch.clamp(rain_img, 0., 1.)
 
 if __name__ == '__main__':
     train_dataset = PreAccidentTrainingDataset(
