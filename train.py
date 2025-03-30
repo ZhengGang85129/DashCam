@@ -71,6 +71,7 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         val_dataloader(torch.utils.data.DataLoader)
     '''
     # Configure augmentations based on augmentation_types argument
+    print(args.augmentation_types)
     aug_config = {
         'fog': 'fog' in args.augmentation_types,
         'noise': 'noise' in args.augmentation_types,
@@ -78,13 +79,13 @@ def get_dataloaders(args, logger) -> Tuple[torch.utils.data.DataLoader, Union[to
         'color_jitter': 'color_jitter' in args.augmentation_types,
         'horizontal_flip': 'horizontal_flip' in args.augmentation_types,
         'rain_effect': 'rain_effect' in args.augmentation_types,
-    }
+    } if args.augmentation_types else {}
 
     # Log which augmentations will be used
     enabled_effects = [k for k, v in aug_config.items() if v]
     logger.info(f"Using AugmentedVideoDataset with augmentations: {enabled_effects}")
     logger.info(f"Global augmentation probability: {args.augmentation_prob}")
-    if aug_config['horizontal_flip']:
+    if aug_config.get('horizontal_flip',False): # if key not found, use False
         logger.info(f"Horizontal flip probability: {args.horizontal_flip_prob}")
 
     # Use the standard dataset if augmentation is disabled
