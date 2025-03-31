@@ -416,7 +416,7 @@ def main():
     else:
         aug_tag = ''
 
-    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}{aug_tag}'
+    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}_opt{args.optimizer}{aug_tag}'
 
     # Log the tag being used
     logger.info(f"Using tag: {tag}")
