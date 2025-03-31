@@ -19,11 +19,14 @@ getenv = PYTHONPATH
 
 # # Create a queue for each combination
 queue job_label, yaml_file from (
-        adam configs/opt_adam.yaml
-        nadam configs/opt_nadam.yaml
-        adamw configs/opt_adamw.yaml
-        lion configs/opt_lion.yaml
-        ranger21 configs/opt_ranger21.yaml
+         cosine_restart configs/lr_cosine_restart.yaml
+         cosine_decay   configs/lr_cosine_decay.yaml
+         baseline       configs/lr_baseline.yaml
+#        adam  configs/opt_adam.yaml
+#        nadam configs/opt_nadam.yaml
+#        adamw configs/opt_adamw.yaml
+#        lion  configs/opt_lion.yaml
+#        ranger21 configs/opt_ranger21.yaml
 #        baseline          configs/baseline_ywk.yaml
 #        test             data/input.test.yaml
 #        none             data/input.none.yaml
