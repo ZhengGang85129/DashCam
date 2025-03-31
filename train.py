@@ -1,5 +1,5 @@
 import torch
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, CosineAnnealingWarmRestarts
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
 from utils.accident_validation_dataset import PreAccidentValidationDataset
@@ -27,15 +27,12 @@ from models.model import baseline_model
 from utils.YamlArguments import load_yaml_file_from_arg
 from utils.CommandLineArguments import train_parse_args
 
-
-
 from models.model import get_model
 from utils.optim import get_optimizer
 from utils.loss import AnticipationLoss, TemporalBinaryCrossEntropy
 from torch.amp import autocast, GradScaler
 from utils.stats import case_counting
 from sklearn.metrics import average_precision_score
-
 
 def get_logger() -> logging.Logger:
     logger_name = "Dashcam-Logger"
@@ -396,7 +393,7 @@ def main():
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     logger.info("=> Creating optimizer")
     logger.info(f"Set up optimizer: {args.optimizer}")
-    optimizer = get_optimizer(args.optimizer)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
+    optimizer = get_optimizer(args.optimizer)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE*0.1 if args.optimizer.lower=='lion' else LR_RATE)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
     SCALER = GradScaler()
     
