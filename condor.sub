@@ -3,7 +3,7 @@
 
 
 #### FIXME
-working_dir             = /eos/user/y/ykao/SWAN_projects/kaggle/DashCam
+working_dir             = /afs/cern.ch/user/l/ltsai/Work/DashCam
 
 executable              = train.acceptYAML.sh
 arguments               = $(yaml_file) $(working_dir)

@@ -4,7 +4,7 @@ learning_rate=$2
 aug_types=$3
 aug_prob=$4 # Takes probability as a number (default: 0.25 if not provided)
 workspce="/eos/user/y/ykao/SWAN_projects/kaggle/DashCam" # FIXME
-monitor_dir="/eos/user/y/ykao/www/kaggle/20250326" # FIXME
+monitor_dir="/eos/user/y/ykao/www/kaggle/20250315" # FIXME
 
 nvidia-smi
 eval "$(conda shell.bash hook)"
@@ -18,7 +18,7 @@ fi
 
 ######### test region ############
 echo "\n\n\n[TestingYamlInput] START"
-python3 train.py ./configs/baseline_ywk.yaml
+python3 train.py train.defaultargs.yaml
 echo "\n\n\n[TestingYamlInput] ENDED"
 exit
 echo "Comment this test region to use original arg parse"
