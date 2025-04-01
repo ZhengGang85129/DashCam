@@ -433,7 +433,7 @@ def main():
         aug_tag = ''
 
     opt_short = args.optimizer[:3].capitalize() if len(args.optimizer) >= 3 else args.optimizer.capitalize()
-    sch_short = args.lr_scheduler[:3].capitalize() if len(args.lr_scheduler) >= 3 else args.lr_scheduler.capitalize()
+    sch_short = args.lr_scheduler.capitalize()
     tag = f'bs{BATCH_SIZE}_lr{LR_RATE}_opt{opt_short}_sch{sch_short}{aug_tag}'
 
     # Log the tag being used
