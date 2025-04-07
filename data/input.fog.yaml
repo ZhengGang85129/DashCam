@@ -5,7 +5,7 @@ monitor_dir: "/afs/cern.ch/work/l/ltsai/Work/DashCam/testoutput"
 epochs: 20
 num_workers: 4
 augmentation_types:
-   #- fog
+    - fog
    #- noise
    #- gaussian_blur
    #- color_jitter
