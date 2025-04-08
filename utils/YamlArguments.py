@@ -12,8 +12,8 @@ class Args:
         self.batch_size             =   int(confDICT.get('batch_size', 10))
         self.num_workers            =   int(confDICT.get('num_workers', 4))
         self.augmentation_types     =       confDICT.get('augmentation_types', None)
-        self.augmentation_prob      = float(confDICT.get('augmentation_prob', 0.25))
-        self.horizontal_flip_prob   = float(confDICT.get('horizontal_flip_prob', 0.5))
+        self.augmentation_prob      = float(confDICT.get('augmentation_prob', 0.))
+        self.horizontal_flip_prob   = float(confDICT.get('horizontal_flip_prob', 0.))
         self.model_type             =   str(confDICT.get('model_type', 'baseline'))
         self.optimizer              =   str(confDICT.get('optimizer', 'radam'))
 
@@ -25,9 +25,11 @@ class Args:
         self.training_dir = str(confDICT.get('training_dir', None))
         self.validation_dir = str(confDICT.get('validation_dir', None))
         self.evaluation_dir = str(confDICT.get('evaluation_dir', None))
+        self.evaluation_train_dir = str(confDICT.get('evaluation_train_dir', None))
         self.training_csv = str(confDICT.get('training_csv', None))
         self.validation_csv = str(confDICT.get('validation_csv', None))
         self.evaluation_csv = str(confDICT.get('evaluation_csv', None))
+        self.evaluation_train_csv = str(confDICT.get('evaluation_train_csv', None))
          
         if self.augmentation_types is None:
             pass ### if nothing set. use default value
