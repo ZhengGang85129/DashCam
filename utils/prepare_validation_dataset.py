@@ -89,24 +89,24 @@ def get_video_info(video_path: str) -> Dict[str, Union[float, int, str, cv2.Vide
 
 
 if __name__ == "__main__":
-    
-    validation_dataset_csv = f'./dataset/sliding_window/validation_videos.csv'
-    
-    dataframe = pd.read_csv(validation_dataset_csv)
-    output_dir = 'dataset/sliding_window/evaluation'
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-     
-    pre_accident_stamps = [500, 1000, 1500]
-    
-    for pre_time in pre_accident_stamps:
-        if not os.path.exists(os.path.join(output_dir, f'tta_{pre_time}ms')):
-            os.makedirs(os.path.join(output_dir, f'tta_{pre_time}ms'))
-    
-     
-    for _, row in dataframe.iterrows():
-        extract_frames_before_timestamp(output_dir = output_dir, video_info = pick(int(row.id), dataframe = dataframe,), pre_accident_stamps = pre_accident_stamps, n_frames = 16) 
-    
+    for dataset  in [("train", "evaluation-train"), ("validation", "evaluation")]:
+        validation_dataset_csv = f'./dataset/sliding_window/{dataset[0]}_videos.csv'
+        
+        dataframe = pd.read_csv(validation_dataset_csv)
+        output_dir = f'dataset/sliding_window/{dataset[1]}'
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        
+        pre_accident_stamps = [500, 1000, 1500]
+        
+        for pre_time in pre_accident_stamps:
+            if not os.path.exists(os.path.join(output_dir, f'tta_{pre_time}ms')):
+                os.makedirs(os.path.join(output_dir, f'tta_{pre_time}ms'))
+        
+        
+        for _, row in dataframe.iterrows():
+            extract_frames_before_timestamp(output_dir = output_dir, video_info = pick(int(row.id), dataframe = dataframe,), pre_accident_stamps = pre_accident_stamps, n_frames = 16) 
+        
      
     
     
