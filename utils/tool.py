@@ -69,7 +69,18 @@ class Monitor(object):
             'name': 'mAcc',
             'title': 'Averaged Accuracy',
             'y_lim': (0.4, 1.1)
+        },
+        '4': {
+            'name': 'mAP',
+            'title': 'mean Averaged Precisiob',
+            'y_lim': (0.4, 1.1)
+        },
+        '5': {
+            'name': 'mSpec',
+            'title': 'Averaged Specifity',
+            'y_lim': (0.4, 1.1)
         }
+        
     }
     
     def __init__(self, save_path:str, tag:str, resume = False, iterations_per_epoch: int = 64) -> None:
@@ -147,7 +158,7 @@ class Monitor(object):
                 fontsize = 8
             )
             self.ax[index].scatter(X_best_point, Y_best_point, c = 'red', label = 'best point', s = 10)
-            self.ax[index].legend(fontsize = 'small', loc = 'lower left')
+            self.ax[index].legend(fontsize = 'small', loc = 'upper left')
         self.fig.savefig(self.save_path + '.png') 
         self.fig.savefig(self.save_path + '.pdf') 
         print(f'Check {self.save_path}.png')
