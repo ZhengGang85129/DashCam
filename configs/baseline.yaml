@@ -1,7 +1,7 @@
 batch_size: 10
 learning_rate: 0.0001
 epochs: 20
-num_workers: 8 # as large as possible
+num_workers: 4 # as large as possible
 model_type: baseline
 optimizer: radam
 decay_coefficient: 30
