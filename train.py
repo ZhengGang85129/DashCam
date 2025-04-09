@@ -1,5 +1,4 @@
 from utils.tool import get_device, set_seed
-set_seed(123)
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 import torch.utils.data.dataloader
@@ -212,10 +211,10 @@ def train(train_loader: torch.utils.data.DataLoader, model: torch.nn.Module, cri
             print(f'[DEBUGMODE] Main Loop broken due to args.debug')
             break
 
-    return train_loss_over_iterations
+    return train_loss_over_iterations, loss_meter.avg_value
 
 
-def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: torch.nn.Module, criterion: nn.Module) -> float:
+def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: torch.nn.Module, criterion: nn.Module, epoch: int = 0) -> float:
     
     model.eval()
     logger.info('===> Processing mean averaged precision (mAP) with multiple pre-accident time intervals.')
@@ -232,7 +231,15 @@ def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: t
             logger.info(f'Processing with pre-accident time intervals: {pre_accident_time} ms...')
             outputs = []
             targets = []
-            for data in val_loaders[pre_accident_time]:
+            batch_time = AverageMeter()
+            data_time = AverageMeter()
+            start = time.time()
+            dataset_per_epoch = len(val_loaders[pre_accident_time])
+            max_iter = EPOCHS * dataset_per_epoch
+            
+            
+            for mini_batch_index, data in enumerate(val_loaders[pre_accident_time]):
+                data_time.update(time.time() - start)
                 X, y = data
                 X = X.to(device)
                 y = y.to(device)
@@ -240,9 +247,15 @@ def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: t
                     output = model(X)
                 prob = F.softmax(output, dim = 1)
                 loss = criterion(output, y, torch.zeros_like(y))
-                
+                batch_time.update(time.time() - start) 
                 positive, negative, true_case, false_case = case_counting(mode = 'volume', output = output, target = y)
                 
+                current_iter = epoch * dataset_per_epoch + mini_batch_index + 1
+                remain_iter = max_iter - current_iter
+                remain_time = batch_time.avg_value * remain_iter
+                t_m, t_s = divmod(remain_time, 60)
+                t_h, t_m = divmod(t_m, 60)
+                remain_time = '{:02d}:{:02d}:{:02d}'.format(int(t_h), int(t_m), int(t_s))
                 loss_meter.update(loss.item())
                 true_meter.update(true_case.sum().item())
                 false_meter.update(false_case.sum().item() )
@@ -253,6 +266,13 @@ def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: t
                 
                 outputs += prob[:, 1].tolist()
                 targets += y.tolist()
+                if (mini_batch_index % 10 == 1) or (mini_batch_index == dataset_per_epoch - 1):
+                    logger.info(
+                    f'Epoch: [{epoch + 1:03d}/{EPOCHS:03d}][{mini_batch_index + 1:03d}/{dataset_per_epoch}] '
+                    f'Data {data_time.current_value:.1f} s ({data_time.avg_value:.1f} s) '
+                    f'Batch {batch_time.current_value:.1f} s ({batch_time.avg_value:.1f} s) '
+                    f'Remain {remain_time} ')
+                start = time.time()
             outputs = torch.tensor(outputs).to('cpu')
             targets = torch.tensor(targets).to('cpu')
             mAP += average_precision_score(targets, outputs)
@@ -279,6 +299,7 @@ def mAP_evaluation(val_loaders: Dict[str, torch.utils.data.DataLoader], model: t
 
 def main():
 
+    set_seed(123)
     global logger, device, EPOCHS, PRINT_FREQ, DEBUG, LR_RATE, BATCH_SIZE, EPS, NUM_WORKERS, RESIZE_SHAPE, SCALER, STATS_MODE
     import sys
     use_yaml_file = len(sys.argv) == 1+1 and '.yaml' in sys.argv[1]
@@ -366,19 +387,19 @@ def main():
 
     for epoch in range(EPOCHS):
         logger.info('Training...')
-        LossRecord = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
+        LossRecord, meanLossRecord = train(train_loader = train_dataloader, model = model, epoch = epoch, optimizer = optimizer, criterion = Loss_fn)
         logger.info('Evaluating...')
         if not DEBUG:
             #valid_metrics = validation(val_loader = val_dataloader, model = model, epoch = epoch, criterion = Loss_fn)
             #for dataset in ['train', 'val']:
             logger.info('==== Training sample ====')
-            train_metrics = mAP_evaluation(val_loaders = eval_dataloaders['train'], model = model, criterion = Loss_fn)
+            train_metrics = mAP_evaluation(val_loaders = eval_dataloaders['train'], model = model, criterion = Loss_fn, epoch = epoch)
             logger.info('==== Validation sample ====')
             valid_metrics = mAP_evaluation(val_loaders = eval_dataloaders['val'], model = model, criterion = Loss_fn)
             #mAP = mAP_evaluation(val_loaders = eval_dataloaders, model = model)
             
             train_metrics['Loss_record'] = LossRecord 
-            
+            train_metrics['meanLossRecord'] = meanLossRecord 
             scheduler.step(valid_metrics['mLoss'])
             current_lr = optimizer.param_groups[0]['lr']
             logger.info(f'Current learning rate: {current_lr:.8f}')
