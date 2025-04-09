@@ -1,6 +1,4 @@
-batch_size: 10
-learning_rate: 0.0001
-epochs: 20
+strategy: configs/training-single.yaml
 num_workers: 4 # as large as possible
 augmentation_prob: 0.25
 augmentation_types:
@@ -12,12 +10,9 @@ augmentation_types:
    - rain_effect
 horizontal_flip_prob: 0.5
 model_type: baseline
-optimizer: radam
 decay_coefficient: 30
 debug: False
 print_freq: 4
-model_dir: rgb_stream_data_augmentation
-monitor_dir: rgb_stream_data_augmentation_monitor #In this directory, the numerical results of metrics will be saved per training epoch.
 training_dir: dataset/sliding_window/train
 training_csv: dataset/sliding_window/train_extracted_clips.csv
 validation_dir: dataset/sliding_window/validation
