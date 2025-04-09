@@ -58,5 +58,7 @@ def train_parse_args() -> argparse.ArgumentParser:
     parser.add_argument('--validation_csv', type = str, help = 'extracted clip csv file for validation dataset')
     parser.add_argument('--evaluation_dir', type = str, help = 'extracted clip folder evaluatio  dataset')
     parser.add_argument('--evaluation_csv', type = str, help = 'extracted clip csv file for evaluation dataset')
+    parser.add_argument('--evaluation_train_dir', type = str, help = 'extracted clip folder evaluation-train  dataset')
+    parser.add_argument('--evaluation_train_csv', type = str, help = 'extracted clip csv file for evaluation-train dataset')
     _args = parser.parse_args()
     return _args

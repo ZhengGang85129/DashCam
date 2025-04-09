@@ -69,7 +69,18 @@ class Monitor(object):
             'name': 'mAcc',
             'title': 'Averaged Accuracy',
             'y_lim': (0.4, 1.1)
+        },
+        '4': {
+            'name': 'mAP',
+            'title': 'mean Averaged Precisiob',
+            'y_lim': (0.4, 1.1)
+        },
+        '5': {
+            'name': 'mSpec',
+            'title': 'Averaged Specifity',
+            'y_lim': (0.4, 1.1)
         }
+        
     }
     
     def __init__(self, save_path:str, tag:str, resume = False, iterations_per_epoch: int = 64) -> None:
@@ -114,6 +125,7 @@ class Monitor(object):
                 Loss_record = self.state['train']['Loss_record']
                 n_iterations = np.arange(1, len(Loss_record)+1)
                 self.ax[index].plot(n_iterations, Loss_record, label = 'train(per iteration)')
+                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['train']['meanLossRecord'], 'm-o',label = 'meanLoss(train)')
 
                 ax_twiny = self.ax[index].twiny() 
                 ax_twiny.xaxis.set_label_position('top')
@@ -121,8 +133,8 @@ class Monitor(object):
                 for epoch in range(len(epochs) + 1):
                     ax_twiny.axvline(x=epoch, color='gray', linestyle='--', alpha=0.3)
                 #ax_twiny.set_xticks([epoch for epoch in range(len(epochs))] + [len(epochs) + 1]) 
-            self.ax[index].plot(epochs, Y_train, 'g-o',label = 'train(per epoch)')
-            self.ax[index].plot(epochs, Y_evaltrain, 'r-o',label = 'eval(per epoch)')
+            self.ax[index].plot(epochs, Y_train, 'g-o',label = 'eval-train(per epoch)')
+            self.ax[index].plot(epochs, Y_evaltrain, 'r-o',label = 'eval-validation(per epoch)')
             self.ax[index].set_ylim(*metric['y_lim'])
             self.ax[index].set_title(metric['title'])
             
@@ -147,7 +159,7 @@ class Monitor(object):
                 fontsize = 8
             )
             self.ax[index].scatter(X_best_point, Y_best_point, c = 'red', label = 'best point', s = 10)
-            self.ax[index].legend(fontsize = 'small', loc = 'lower left')
+            self.ax[index].legend(fontsize = 'small', loc = 'upper left')
         self.fig.savefig(self.save_path + '.png') 
         self.fig.savefig(self.save_path + '.pdf') 
         print(f'Check {self.save_path}.png')
