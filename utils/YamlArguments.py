@@ -8,6 +8,7 @@ class Args:
     def __init__(self, confDICT):
         self.monitor_dir            =   str(confDICT.get('monitor_dir', 'monitor_train'))
         self.learning_rate          = float(confDICT.get('learning_rate', 0.0001))
+        self.lr_scheduler           =   str(confDICT.get('lr_scheduler', 'default'))
         self.epochs                 =   int(confDICT.get('epochs', 20))
         self.batch_size             =   int(confDICT.get('batch_size', 10))
         self.num_workers            =   int(confDICT.get('num_workers', 4))

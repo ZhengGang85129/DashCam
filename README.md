@@ -17,6 +17,8 @@ pip3 install torchsummary
 pip3 install pyyaml
 pip3 install timesformer-pytorch
 pip3 install scikit-learn
+pip3 install lion_pytorch
+pip3 install ranger21
 ```
 
 ## Step 1. Dataset Download

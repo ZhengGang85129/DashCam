@@ -14,12 +14,24 @@ log                     = matrix.$(ClusterId).log
 when_to_transfer_output = ON_EXIT
 request_GPUs = 1
 request_CPUs = 12
-+JobFlavour = "testmatch"
++JobFlavour = "workday"
 getenv = PYTHONPATH
 
 # # Create a queue for each combination
 queue job_label, yaml_file from (
-        test             data/input.test.yaml
+        nadam_baseline         configs/lr_nadam_baseline.yaml
+        nadam_cosine_decay     configs/lr_nadam_cosine_decay.yaml
+        nadam_cosine_restart   configs/lr_nadam_cosine_restart.yaml
+        radam_baseline         configs/lr_radam_baseline.yaml
+        radam_cosine_decay     configs/lr_radam_cosine_decay.yaml
+        radam_cosine_restart   configs/lr_radam_cosine_restart.yaml
+#        adam  configs/opt_adam.yaml
+#        nadam configs/opt_nadam.yaml
+#        adamw configs/opt_adamw.yaml
+#        lion  configs/opt_lion.yaml
+#        ranger21 configs/opt_ranger21.yaml
+#        baseline          configs/baseline_ywk.yaml
+#        test             data/input.test.yaml
 #        none             data/input.none.yaml
 #        fog              data/input.fog.yaml
 #        noise            data/input.noise.yaml

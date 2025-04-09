@@ -1,6 +1,6 @@
 from utils.tool import get_device, set_seed
 import torch
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, CosineAnnealingWarmRestarts
 import torch.utils.data.dataloader
 from utils.Dataset import VideoDataset, VideoTo3DImageDataset # type: ignore
 from utils.accident_validation_dataset import PreAccidentValidationDataset
@@ -22,15 +22,12 @@ from datetime import datetime
 from utils.YamlArguments import load_yaml_file_from_arg
 from utils.CommandLineArguments import train_parse_args
 
-
-
 from models.model import get_model
 from utils.optim import get_optimizer
 from utils.loss import TemporalBinaryCrossEntropy
 from torch.amp import autocast, GradScaler
 from utils.stats import case_counting
 from sklearn.metrics import average_precision_score
-
 
 def get_logger() -> logging.Logger:
     logger_name = "Dashcam-Logger"
@@ -341,8 +338,24 @@ def main():
     #AnticipationLoss(decay_nframe = DECAY_NFRAME, pivot_frame_index = 100, device = get_device())
     logger.info("=> Creating optimizer")
     logger.info(f"Set up optimizer: {args.optimizer}")
-    optimizer = get_optimizer(args.optimizer)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
+    optimizer = get_optimizer(args.optimizer)([p for p in model.parameters() if p.requires_grad], lr = LR_RATE*0.1 if args.optimizer.lower=='lion' else LR_RATE)
+
+    if args.lr_scheduler == 'cosine_decay':
+        scheduler = CosineAnnealingLR(
+            optimizer,
+            T_max=EPOCHS,         # set to total number of epochs
+            eta_min=1e-6          # minimum LR at the end of the cycle
+        )
+    elif args.lr_scheduler == 'cosine_restart':
+        scheduler = CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=EPOCHS//2,        # restart halfway through training
+            T_mult=1,             # keep the same cycle length
+            eta_min=1e-6          # minimum LR
+        )
+    else:
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True, min_lr=1e-6)
+
     SCALER = GradScaler()
     
     logger.info(f'{optimizer}')
@@ -364,7 +377,9 @@ def main():
     else:
         aug_tag = ''
 
-    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}{aug_tag}'
+    opt_short = args.optimizer[:3].capitalize() if len(args.optimizer) >= 3 else args.optimizer.capitalize()
+    sch_short = args.lr_scheduler.capitalize()
+    tag = f'bs{BATCH_SIZE}_lr{LR_RATE}_opt{opt_short}_sch{sch_short}{aug_tag}'
 
     # Log the tag being used
     logger.info(f"Using tag: {tag}")
@@ -417,8 +432,9 @@ def main():
                 'best_point': best_point_metrics
             })
 
-        torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
-        torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
+        if (epoch>0) and (epoch+1)%5==0:
+            torch.save(model.state_dict(), f'{args.model_dir}/model_ckpt-epoch{epoch:02d}_{tag}.pt')
+            torch.save(optimizer.state_dict(), f'{args.model_dir}/optim_ckpt-epoch{epoch:02d}_{tag}.pt')
     return
 
 if __name__ == "__main__":
