@@ -57,27 +57,27 @@ class Monitor(object):
         }, 
         '1': {
             'name': 'mPrec',
-            'title': 'Averaged Precision',
+            'title': 'Averaged Precision(critical clips)',
             'y_lim': (0.4, 1.1)
         },
         '2': {
             'name': 'mRecall',
-            'title': 'Averaged Recall',
+            'title': 'Averaged Recall(critical clips)',
             'y_lim': (0.4, 1.1)
         },
         '3': {
             'name': 'mAcc',
-            'title': 'Averaged Accuracy',
+            'title': 'Averaged Accuracy(critical clips)',
             'y_lim': (0.4, 1.1)
         },
         '4': {
             'name': 'mAP',
-            'title': 'mean Averaged Precisiob',
+            'title': 'mean Averaged Precision(critical clips)',
             'y_lim': (0.4, 1.1)
         },
         '5': {
             'name': 'mSpec',
-            'title': 'Averaged Specifity',
+            'title': 'Averaged Specifity(critical clips)',
             'y_lim': (0.4, 1.1)
         }
         
@@ -124,17 +124,18 @@ class Monitor(object):
             if metric['name'] == 'mLoss':
                 Loss_record = self.state['train']['Loss_record']
                 n_iterations = np.arange(1, len(Loss_record)+1)
-                self.ax[index].plot(n_iterations, Loss_record, label = 'train(per iteration)')
-                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['train']['meanLossRecord'], 'm-o',label = 'meanLoss(train)')
+                self.ax[index].plot(n_iterations, Loss_record, label = 'temporal-weighted loss(train/iteration)')
+                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['train']['meanLossRecord'], 'm-o',label = 'temporal-weighted loss(train/epoch)')
 
+                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['validation']['meanLossRecord'], 'c-o',label = 'temporal-weighted loss(val/epoch)')
                 ax_twiny = self.ax[index].twiny() 
                 ax_twiny.xaxis.set_label_position('top')
                 ax_twiny.xaxis.tick_top()
                 for epoch in range(len(epochs) + 1):
                     ax_twiny.axvline(x=epoch, color='gray', linestyle='--', alpha=0.3)
                 #ax_twiny.set_xticks([epoch for epoch in range(len(epochs))] + [len(epochs) + 1]) 
-            self.ax[index].plot(epochs, Y_train, 'g-o',label = 'eval-train(per epoch)')
-            self.ax[index].plot(epochs, Y_evaltrain, 'r-o',label = 'eval-validation(per epoch)')
+            self.ax[index].plot(epochs, Y_train, 'g-o',label = 'critical-clip Loss(train)')
+            self.ax[index].plot(epochs, Y_evaltrain, 'r-o',label = 'critical-clip Loss(val)')
             self.ax[index].set_ylim(*metric['y_lim'])
             self.ax[index].set_title(metric['title'])
             
