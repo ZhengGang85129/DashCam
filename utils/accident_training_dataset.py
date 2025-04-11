@@ -24,7 +24,8 @@ class PreAccidentTrainingDataset(Dataset):
         crop_size: Tuple[int, int] = (112, 112),
         augmentation_config: Optional[Dict[str, bool]] = None,
         global_augment_prob: float = 0.25,
-        horizontal_flip_prob: float = 0.5
+        horizontal_flip_prob: float = 0.5,
+        sampling_approach: str = 'uniform'
     ):
         self.root_dir = root_dir
         self.data_frame = pd.read_csv(csv_file)
@@ -59,7 +60,7 @@ class PreAccidentTrainingDataset(Dataset):
             'horizontal_flip': False,
             'rain_effect': False,
         }
-
+        self.sampling_approach = sampling_approach
         # Use specified augmentation effects if provided
         if augmentation_config:
             self._validate_config(augmentation_config)
@@ -106,7 +107,20 @@ class PreAccidentTrainingDataset(Dataset):
         augment_params = self._get_augmentation_params()
 
         # Load and process frames
-        selected_frame = random.randint(0, self.interested_interval - 1) + (self.num_frames - 1) * interval # Randomly select a frame as the 'current frame'. 
+        if self.sampling_approach.lower() == 'uniform' or target < 0.5:
+            selected_frame = random.randint(0, self.interested_interval - 1) + (self.num_frames - 1) * interval # Randomly select a frame as the 'current frame'.
+        elif self.sampling_approach.lower() == 'weighted':
+            #raise ValueError(f'Event frame: {event_frame}') 
+            p = random.random()
+            if p <= 0.5:
+                selected_intervals = [f for f in range(event_frame - 45, event_frame)] # Close to accident event
+            elif 0.5 < p <= 0.9:
+                selected_intervals = [f for f in range(event_frame - 45)] 
+            else:
+                selected_intervals = [f for f in range(event_frame, total_frames)] # After accident event
+            selected_frame = random.choice(selected_intervals)
+        else:
+            raise ValueError(f'No such sampling approach: {self.sampling_weight}') 
         start_frame = selected_frame - (self.num_frames - 1) * interval # Indices falling within the range [start_frame, current_frame] represent past frames.
         frames = []
         
