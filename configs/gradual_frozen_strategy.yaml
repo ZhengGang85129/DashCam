@@ -1,4 +1,4 @@
-strategy: configs/training-unfreeze_layer2-layer3-layer4-FC.yaml
+strategy: ./configs/training-unfreeze.FC.layer4.layer3.yaml
 num_workers: 4 # as large as possible
 augmentation_prob: 0.25
 augmentation_types:
@@ -21,4 +21,9 @@ evaluation_dir: dataset/sliding_window/evaluation/
 evaluation_csv: dataset/sliding_window/validation_videos.csv
 evaluation_train_dir: dataset/sliding_window/evaluation-train/
 evaluation_train_csv: dataset/sliding_window/train_videos.csv
-frame_sampling: uniform
+classifier:
+   - relu
+   - dropout:0.3
+   - 256
+   - relu
+sampling_approach: weighted #uniform

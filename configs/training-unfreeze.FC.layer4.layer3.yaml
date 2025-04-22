@@ -1,0 +1,23 @@
+strategy: single #single
+batch_size: 10
+resume: True # If True, the model will load parameters from `check_point_path`
+optim_resume: False # If True, the optimizer will load saved state from `optim_check_point_path` 
+optimizer:
+  name: adamw
+  lr: 1e-5
+  weight_decay: 1e-4
+scheduler:
+  name: CosineAnnealingLR #options: 
+  T_max: 10
+  eta_min: 1e-6
+  #name: ReduceLROnPlateau
+  #mode: min
+  #factor: 0.5
+  #patience: 3
+  #min_lr: 1e-6
+epochs: 10
+model_dir: benchmark_unfreeze_FC-layer4-layer3 # will store the trained checkpoint under this folder
+monitor_dir: benchmark_unfreeze_FC-layer4-layer3-monitor # will store the metric points under this. Currently, this will be overwritten by a new training process.
+trainable_parts: ["classifier", "layer4", "layer3"] # options: ["*"], ["classifier"], ["layer4", "classifier"]
+check_point_path: benchmark_unfreeze_FC-layer4/model_ckpt-epoch03_bs10_lr1e-4_aug0.25_col_fog_gau_hor_noi_rai.pt #valid only if resume is True
+optim_check_point_path: #valid only if optim_resume is True

@@ -6,18 +6,18 @@ ALLOWED_MODEL_TYPES = ['timesformer', 'baseline', 'accidentxai', 'swintransforme
 
 class Args:
     def __init__(self, confDICT):
-        self.monitor_dir            =   str(confDICT.get('monitor_dir', 'monitor_train'))
-        self.learning_rate          = float(confDICT.get('learning_rate', 0.0001))
-        self.epochs                 =   int(confDICT.get('epochs', 20))
-        self.batch_size             =   int(confDICT.get('batch_size', 10))
+        #self.monitor_dir            =   str(confDICT.get('monitor_dir', 'monitor_train'))
+        #self.learning_rate          = float(confDICT.get('learning_rate', 0.0001))
+        #self.epochs                 =   int(confDICT.get('epochs', 20))
+        #self.batch_size             =   int(confDICT.get('batch_size', 10))
         self.num_workers            =   int(confDICT.get('num_workers', 4))
         self.augmentation_types     =       confDICT.get('augmentation_types', None)
         self.augmentation_prob      = float(confDICT.get('augmentation_prob', 0.))
         self.horizontal_flip_prob   = float(confDICT.get('horizontal_flip_prob', 0.))
         self.model_type             =   str(confDICT.get('model_type', 'baseline'))
-        self.optimizer              =   str(confDICT.get('optimizer', 'radam'))
+        #self.optimizer              =   str(confDICT.get('optimizer', 'radam'))
 
-        self.model_dir              =       confDICT.get('model_dir', 'model_ckpt')
+        #self.model_dir              =       confDICT.get('model_dir', 'model_ckpt')
         self.debug                  =  bool(confDICT['debug']) if 'debug' in confDICT else False
         self.print_freq = int(confDICT.get('print_freq', 4))
         self.decay_coefficient = float(confDICT.get('decay_coefficient', 30))
@@ -30,6 +30,10 @@ class Args:
         self.validation_csv = str(confDICT.get('validation_csv', None))
         self.evaluation_csv = str(confDICT.get('evaluation_csv', None))
         self.evaluation_train_csv = str(confDICT.get('evaluation_train_csv', None))
+        
+        self.strategy = str(confDICT.get('strategy', None))
+        self.classifier = confDICT.get('classifier', None) 
+        self.sampling_approach = str(confDICT.get('sampling_approach', 'uniform'))
          
         if self.augmentation_types is None:
             pass ### if nothing set. use default value
