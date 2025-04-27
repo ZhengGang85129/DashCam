@@ -65,7 +65,7 @@ def plot_likelihood(preds:torch.Tensor, truth: torch.Tensor)-> None:
     plt.figure(figsize=(10, 6))
     for Idx, (tag, pred) in enumerate(preds.items()):
         plt.hist(pred[truth[tag]==1], bins=20, alpha=0.7, edgecolor='black', label = tag)
-        plt.hist(pred[truth[tag]==0], bins=20, alpha=0.7, color='red', edgecolor='black', label = 'non-accident' if Idx == 0 else '')
+        plt.hist(pred[truth[tag]==0], bins=20, alpha=0.1, color='red', edgecolor='black', label = 'non-accident' if Idx == 0 else '')
         plt.title('Model output')
         plt.xlabel('Output probability')
         plt.ylabel('event')
