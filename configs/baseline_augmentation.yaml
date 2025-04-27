@@ -1,5 +1,6 @@
-strategy: configs/training-unfreeze_layer2-layer3-layer4-FC.yaml
-num_workers: 4 # as large as possible
+strategy: configs/training-unfreeze_all.yaml
+num_workers: 8 # as large as possible
+seed: 123
 augmentation_prob: 0.25
 augmentation_types:
    - fog
@@ -10,15 +11,14 @@ augmentation_types:
    - rain_effect
 horizontal_flip_prob: 0.5
 model_type: baseline
-decay_coefficient: 30
 debug: False
-print_freq: 4
-training_dir: dataset/sliding_window/train
-training_csv: dataset/sliding_window/train_extracted_clips.csv
-validation_dir: dataset/sliding_window/validation
-validation_csv: dataset/sliding_window/validation_extracted_clips.csv
+print_freq: 16
+training_dir: dataset/image/train/ #dataset/sliding_window/train
+training_csv: dataset/frame_train.csv #dataset/sliding_window/train_extracted_clips.csv
+validation_dir: dataset/image/validation/ #dataset/sliding_window/validation
+validation_csv: dataset/frame_validation.csv #dataset/sliding_window/validation_extracted_clips.csv
 evaluation_dir: dataset/sliding_window/evaluation/
 evaluation_csv: dataset/sliding_window/validation_videos.csv
 evaluation_train_dir: dataset/sliding_window/evaluation-train/
 evaluation_train_csv: dataset/sliding_window/train_videos.csv
-frame_sampling: uniform
+num_train_samples: 1200

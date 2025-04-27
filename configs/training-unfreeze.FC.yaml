@@ -16,8 +16,8 @@ scheduler:
   #patience: 3
   #min_lr: 1e-6
 epochs: 10
-model_dir: benchmark_unfreeze_FC # will store the trained checkpoint under this folder
-monitor_dir: benchmark_unfreeze_FC-monitor # will store the metric points under this. Currently, this will be overwritten by a new training process.
+model_dir: randomsampling_unfreeze_FC # will store the trained checkpoint under this folder
+monitor_dir: randomsampling_unfreeze_FC-monitor # will store the metric points under this. Currently, this will be overwritten by a new training process.
 trainable_parts: ["classifier"] # options: ["*"], ["classifier"], ["layer4", "classifier"]
 check_point_path: #valid only if resume is True
 optim_check_point_path: #valid only if optim_resume is True
