@@ -17,6 +17,11 @@ def get_device()->torch.device:
         device = torch.device('cpu')
         print(f"Device: {device}")
     return device
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
 
 def set_seed(seed: int = 42) -> None:
     np.random.seed(seed)
@@ -26,6 +31,8 @@ def set_seed(seed: int = 42) -> None:
     # When running on the CuDNN backend, two further options must be set
     cudnn.deterministic = True
     cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     # Set a fixed value for the hash seed
     os.environ["PYTHONHASHSEED"] = str(seed)
     print(f"Random seed set as {seed}")
@@ -83,12 +90,13 @@ class Monitor(object):
         
     }
     
-    def __init__(self, save_path:str, tag:str, resume = False, iterations_per_epoch: int = 64) -> None:
+    def __init__(self, save_path:str, tag:str, resume = False, iterations_per_epoch: int = 64, monitor_overwrite: bool = False) -> None:
         self.save_path = os.path.join(save_path, f'monitor_{tag}')
         self.nmetric = len(self.metrics.items())
         self.resume = resume
         self.state = dict()
         self.state['iterations_per_epoch'] = iterations_per_epoch
+        
     def reset(self) -> None:
         # Calculate figure dimensions to maintain 4:3 ratio for each subplot
         width_inches = 10  # Total figure width - adjust as needed
@@ -122,12 +130,12 @@ class Monitor(object):
             epochs = [epoch * n_steps_per_update for epoch in x] 
             
             if metric['name'] == 'mLoss':
-                Loss_record = self.state['train']['Loss_record']
+                Loss_record = self.state['train']['train_loss_over_iterations']
                 n_iterations = np.arange(1, len(Loss_record)+1)
                 self.ax[index].plot(n_iterations, Loss_record, label = 'temporal-weighted loss(train/iteration)')
-                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['train']['meanLossRecord'], 'm-o',label = 'temporal-weighted loss(train/epoch)')
+                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['train']['mBCELoss'], 'm-o',label = 'Cross Entropy(train/epoch)')
 
-                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['validation']['meanLossRecord'], 'c-o',label = 'temporal-weighted loss(val/epoch)')
+                self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['validation']['mBCELoss'], 'c-o',label = 'Cross Entropy(validation/epoch)')
                 ax_twiny = self.ax[index].twiny() 
                 ax_twiny.xaxis.set_label_position('top')
                 ax_twiny.xaxis.tick_top()
@@ -176,7 +184,6 @@ class Monitor(object):
     def update(self, metrics: Dict[str, Dict]) -> None:
         
         
-        
         for dataset, dataset_metrics in metrics.items():
             if self.state.get(dataset, None) is None:
                 self.state[dataset] = dict() 
@@ -187,7 +194,7 @@ class Monitor(object):
                 for key, value in dataset_metrics.items():
                     if self.state[dataset].get(key, None) is None:
                         self.state[dataset][key] = []
-                    if key == 'Loss_record':
+                    if key == 'train_loss_over_iterations':
                         self.state[dataset][key].extend(value)
                     else:
                         self.state[dataset][key].append(value)
