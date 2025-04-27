@@ -7,14 +7,14 @@ from typing import List, Optional
 os.environ['TORCH_HOME'] = os.getcwd() #will download model weights to your current work directory
 
 class baseline_model(nn.Module):
-    def __init__(self, trainable_parts: List = ["*"], classifier: Optional[List] = None):
+    def __init__(self, classifier: Optional[List] = None):
         super(baseline_model, self).__init__()
-        self.model = r3d_18(weights = R3D_18_Weights.DEFAULT)
+        self.backbone = r3d_18(weights = R3D_18_Weights.DEFAULT)
         if classifier is None:
-            self.model.fc = nn.Linear(self.model.fc.in_features, 2)  # Modify output layer for binary classification
+            self.backbone.fc = nn.Linear(self.backbone.fc.in_features, 2)  # Modify output layer for binary classification
         else:
             _classifier_in_list = []
-            prev_infeat = self.model.fc.in_features
+            prev_infeat = self.backbone.fc.in_features
             for elem in classifier:
                 if isinstance(elem, str):
                     if elem.lower() == 'relu':
@@ -28,38 +28,38 @@ class baseline_model(nn.Module):
                 else:
                     raise ValueError(f"Can't assign such layer: {elem}") 
             _classifier_in_list.append(nn.Linear(prev_infeat, 2))
-            self.model.fc = nn.Sequential(*_classifier_in_list)
+            self.backbone.fc = nn.Sequential(*_classifier_in_list)
                  
         self.initial_weights()
-        self.freeze_parameters() 
-        if '*' in trainable_parts:
-            self.unfreeze_all_parameters()
-        else: 
-            for trainable_part in trainable_parts:
-                if "classifier" == trainable_part.lower() or "fc" == trainable_part.lower():
-                    self.unfreeze_classifer()
-                else:
-                    self.unfreeze_part( layer_name = trainable_part)
-    
-    def freeze_parameters(self):
-        for param in self.model.parameters():
-            param.requires_grad = False
-    
-    
-    def unfreeze_all_parameters(self):
-        for param in self.model.parameters():
-            param.requires_grad = True
-    
-    def unfreeze_classifer(self):
-        for param in self.model.fc.parameters():
-            param.requires_grad = True
-    
-    def unfreeze_part(self, layer_name: str):
-        for name, module in self.model.named_children():
-            if name in layer_name:
-                for param in module.parameters():
+        self.freeze()
+        
+         
+    def unfreeze_layers(self, layer_names: List[str]) -> None:
+        '''
+        Unfreezing the parameters in the corresponding parts.
+        '''
+        
+        if "*" in layer_names:
+            for param in self.backbone.parameters():
+                param.reguires_grad = True
+            return True
+        else:
+            for layer_name in layer_names:
+                if not hasattr(self.backbone, layer_name):
+                    raise ValueError(f"Layer '{layer_name}' not found in model. Available layers: {list(layer for layer in dir(self.backbone) if not layer.startswith('_'))}")
+                layer = getattr(self.backbone, layer_name)
+
+                if not isinstance(layer, torch.nn.Module):
+                    raise ValueError(f"The attribute '{layer_name}' exists but is not a nn.Module")
+                for param in layer.parameters():
                     param.requires_grad = True
-                print(f"Unfroze part: {name}")  
+
+        return
+    def freeze(self) -> None:
+        
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+        return 
      
     def initial_weights(self):
         for name, m in self.named_modules():
@@ -77,4 +77,4 @@ class baseline_model(nn.Module):
         '''
         x = x.permute(0, 2, 1, 3, 4) 
         
-        return self.model(x)
+        return self.backbone(x)
