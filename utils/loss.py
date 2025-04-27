@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from typing import Union
 
 class AnticipationLoss(nn.Module):
-    def __init__(self, frame_of_accident:float = 90, n_frames: float = 100, decay_coefficient: float = 30, device: Union[torch.device, None] = None):
+    def __init__(self, frame_of_accident:float = 90, n_frames: float = 100, decay_coefficient: float = 30, device: Union[torch.device, None] = None, gamma: float = 1):
         super(AnticipationLoss, self).__init__()
         self.frame_of_accident = frame_of_accident
         self.n_frames = n_frames
@@ -14,7 +14,7 @@ class AnticipationLoss(nn.Module):
         neg_penalty = torch.ones([n_frames])
         self.penalty = torch.stack([neg_penalty, pos_penalty], dim = 1) # shape: [n_frames, 2]
         self.ce_loss = nn.CrossEntropyLoss(reduction = 'none')
-         
+        self.gamma = gamma 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor)->torch.Tensor:
         """
         Args: 
@@ -41,25 +41,32 @@ class AnticipationLoss(nn.Module):
         #print(loss)
 
 class TemporalBinaryCrossEntropy(nn.Module):
-    def __init__(self, decay_coefficient:int = 20):
+    def __init__(self, decay_coefficient:int = 20, gamma: float = 1):
         super(TemporalBinaryCrossEntropy, self).__init__()
          
         self.decay_coefficient = decay_coefficient
         self.ce_loss = nn.CrossEntropyLoss(reduction='none', )
-        
-    def forward(self, output: torch.Tensor, target: torch.Tensor, T_diff: torch.Tensor) -> torch.Tensor:
-        
+        self.gamma = gamma  
+    def forward(self, logit: torch.Tensor, target: torch.Tensor, T_diff: torch.Tensor) -> torch.Tensor:
+        '''
+        logit: (N, 2)
+        target: (N)
+        T_diff: (N)
+        ''' 
         pos_weight = torch.exp(-F.relu(T_diff)/self.decay_coefficient).to(target.device)
         neg_weight = torch.ones_like(target).to(target.device)
-        one_hot = F.one_hot(target, num_classes = 2).to(output.device)
-        weight = torch.stack([neg_weight, pos_weight], dim = 1).to(output.device)
-        sample_weights = torch.sum(one_hot * weight, dim=1)
+        one_hot = F.one_hot(target, num_classes = 2).to(logit.device)
+        weight = torch.stack([neg_weight, pos_weight], dim = 1).to(logit.device)
+        probs = F.softmax(logit, dim = 1)
+        sample_weights = torch.sum(one_hot * weight * ((1- probs) ** self.gamma), dim=1)
+        
         #print(target, output)
-        per_sample_loss = self.ce_loss(output, target)
+        per_sample_loss = self.ce_loss(logit, target)
         #print(per_sample_loss)
         #print(sample_weights)
         #print(sample_weights * per_sample_loss)
-        return  torch.mean(sample_weights * per_sample_loss)
+        
+        return  torch.mean(sample_weights * per_sample_loss )
 
 
 if __name__ == "__main__":
