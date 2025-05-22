@@ -55,7 +55,10 @@ class AccidentDataset(Dataset):
             concerend(bool)
         ''' 
         row = self.metadata[self.metadata.video_id == self.get_vids[idx]]
-        
+
+        if row.label.sum()>0:
+            row = row[row.positive == 1]
+            row = row[(row.last_frame - row.frame >= 15) & (row.last_frame - row.frame <= 45)]
         while True:
             random_row = row.sample(n = 1)
             if random_row.frame.item() >= (self.frame_per_window - 1) * self.stride:
@@ -85,7 +88,7 @@ class AccidentDataset(Dataset):
             raise ValueError()
         
         frames = torch.stack(frames, dim = 0)
-        return frames, random_row.target.item(), random_row.T_diff.item(), random_row.weight.item(), random_row.concerned.item()   
+        return frames, random_row.label.item(), random_row.T_diff.item(), random_row.weight.item(), random_row.positive.item()   
     
     def __get_inferece_clips(self, idx: int) -> Tuple[torch.Tensor, int]:
         '''
