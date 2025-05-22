@@ -119,7 +119,7 @@ class Video_Processor:
         print('Done')
         print(f'Check: {self.metadata_frame_path}.') 
         
-        if extract_frame:
+        if extract_frame and self.dataset != 'test':
             self.visualize(n_samples = 3)
          
     def worker(self, video_id, process_fn, extract_frame: bool = False):
@@ -141,7 +141,7 @@ class Video_Processor:
                 ax.imshow(img)
                 ax.axis('off')
             plt.tight_layout()
-            plt.savefig(self.save_dir + Path(f'/vid_{vid}.png'))
+            plt.savefig(self.save_dir / Path(f'/vid_{vid}.png'))
             plt.close()
 def main():
     args = prepare_parse() 
