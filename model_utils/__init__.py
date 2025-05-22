@@ -1,2 +1,0 @@
-from .FeatureExtractor import FeatureExtractor
-from .ObjectDetector import ObjectDetector
