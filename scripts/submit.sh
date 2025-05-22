@@ -1,0 +1,1 @@
+python3 -m scripts.evaluation ./experiment/mvit2.yaml 

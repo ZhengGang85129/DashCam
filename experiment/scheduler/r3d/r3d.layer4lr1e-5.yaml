@@ -1,0 +1,36 @@
+trainer_name: baseline.layer4lr1e-5.unfreeze  #single
+batch_size: 4
+decay_coefficient: 30
+resume: False # If True, the model will load parameters from `check_point_path`
+optim_resume: False # If True, the optimizer will load saved state from `optim_check_point_path` 
+optimizer:
+  name: adamw
+  weight_decay: 0.005
+  differential_lr:
+    classifier: 1.0e-3
+    layer4: 1.0e-6
+    layer3: 5.0e-4
+    layer2: 5.0e-5
+    layer1: 1.0e-5
+reweight:
+  apply: false
+  epoch:
+    - 1
+
+model_dir: experiment/output/r3d.layer4lr1e-5.unfreeze # will store the trained checkpoint under this folder
+monitor_dir: experiment/output/r3d.layer4lr1e-5.unfreeze-monitor # will store the metric points under this. Currently, this will be overwritten by a new training process.
+monitor_overwrite: true
+check_point_path: #valid only if resume is True
+optim_check_point_path: #valid only if optim_resume is True
+unfreezing:
+  schedule:
+  - epoch: 0
+    layers_to_unfreeze: ["classifier", "layer4"]
+  - epoch: 15
+    layers_to_unfreeze: ["layer4"]
+  freeze_bn: true
+early_stopping:
+  delta: 0.001
+  patience: 30
+gamma: 0 # focal loss
+stride: 1

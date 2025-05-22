@@ -1,0 +1,1 @@
+kaggle competitions submit -c nexar-collision-prediction -f $1 -m "Message"

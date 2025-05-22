@@ -1,0 +1,27 @@
+training_strategy: experiment/scheduler/mvit_v2/template.yaml
+seed: 123
+model_type: mvit_v2
+debug: False
+print_freq: 16
+training_dir: dataset/img_database/train
+#dataset/sliding_window/train
+training_csv: dataset/frame_train.csv #dataset/sliding_window/train_extracted_clips.csv
+validation_dir: dataset/img_database/validation/ #dataset/sliding_window/validation
+validation_csv: dataset/frame_validation.csv #dataset/sliding_window/validation_extracted_clips.csv
+test_dir: dataset/img_database/test
+test_csv: dataset/test.csv
+scheduler:
+  name: CosineAnnealingLR #options: 
+  eta_min: 1e-6
+  #name: ReduceLROnPlateau
+  #mode: min
+  #factor: 0.5
+  #patience: 3
+  #min_lr: 1e-6
+total_epochs: 15
+classifier:
+- 512
+- relu
+- dropout:0.1
+- 512
+- relu
