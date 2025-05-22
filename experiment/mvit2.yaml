@@ -1,15 +1,15 @@
-training_strategy: experiment/scheduler/mvit_v2/template.yaml
+training_strategy: experiment/scheduler/mvit_v2/best_param.yaml
 seed: 123
 model_type: mvit_v2
 debug: False
 print_freq: 16
 training_dir: dataset/img_database/train
 #dataset/sliding_window/train
-training_csv: dataset/frame_train.csv #dataset/sliding_window/train_extracted_clips.csv
+training_csv: dataset/img_database/frame-metadata_train.csv #dataset/sliding_window/train_extracted_clips.csv
 validation_dir: dataset/img_database/validation/ #dataset/sliding_window/validation
-validation_csv: dataset/frame_validation.csv #dataset/sliding_window/validation_extracted_clips.csv
+validation_csv: dataset/img_database/frame-metadata_validation.csv #dataset/sliding_window/validation_extracted_clips.csv
 test_dir: dataset/img_database/test
-test_csv: dataset/test.csv
+test_csv: dataset/img_database/test.csv
 scheduler:
   name: CosineAnnealingLR #options: 
   eta_min: 1e-6
