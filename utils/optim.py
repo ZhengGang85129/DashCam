@@ -31,6 +31,7 @@ def print_optimizer_param_groups(optimizer):
         print(f"Group {idx}: lr = {lr}")
     return 
 
+
 def get_optimizer(model: nn.Module, optimizer: Dict)->torch.optim.Optimizer:
     
     if optimizer['name'].lower() == 'radam':
@@ -56,7 +57,8 @@ def get_optimizer(model: nn.Module, optimizer: Dict)->torch.optim.Optimizer:
         for layer_name, base_lr in optimizer['differential_lr'].items():
             if isinstance(base_lr, str):
                 base_lr = float(base_lr)
-            layer = getattr(model.backbone, layer_name)
+            
+            layer = model.get_layer_by_name(layer_name)
             decayed_p, no_decayed_p = split_params(layer)
             if decayed_p:
                 param_groups.append({

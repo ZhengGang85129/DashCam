@@ -2,7 +2,7 @@
 import yaml
 
 ALLOWED_AUTMENTATION_TYPES = [ "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect" ]
-ALLOWED_MODEL_TYPES = ['timesformer', 'baseline', 'accidentxai', 'swintransformer']
+ALLOWED_MODEL_TYPES = ['timesformer', 'baseline', 'accidentxai', 'swintransformer', "mvit_v2"]
 
 class Args:
     def __init__(self, confDICT):
@@ -19,12 +19,11 @@ class Args:
         
         self.training_dir = str(confDICT.get('training_dir', None))
         self.validation_dir = str(confDICT.get('validation_dir', None))
-        self.evaluation_dir = str(confDICT.get('evaluation_dir', None))
-        self.evaluation_train_dir = str(confDICT.get('evaluation_train_dir', None))
+        self.test_dir = str(confDICT.get('test_dir', None))
+        self.test_csv = str(confDICT.get('test_csv', None))
         self.training_csv = str(confDICT.get('training_csv', None))
         self.validation_csv = str(confDICT.get('validation_csv', None))
-        self.evaluation_csv = str(confDICT.get('evaluation_csv', None))
-        self.evaluation_train_csv = str(confDICT.get('evaluation_train_csv', None))
+        
         
         self.training_strategy = confDICT.get('training_strategy', None)
         self.classifier = confDICT.get('classifier', None) 
@@ -40,6 +39,7 @@ class Args:
         self.scheduler = confDICT.get('scheduler', None)
         self.scheduler['T_max'] =  self.total_epochs
         
+         
         if self.augmentation_types is None:
             pass ### if nothing set. use default value
         else:

@@ -131,7 +131,7 @@ class Monitor(object):
             
             if metric['name'] == 'mLoss':
                 Loss_record = self.state['train']['train_loss_over_iterations']
-                n_iterations = np.arange(1, len(Loss_record)+1)
+                n_iterations = np.arange(len(Loss_record))
                 self.ax[index].plot(n_iterations, Loss_record, label = 'temporal-weighted loss(train/iteration)')
                 self.ax[index].plot([epoch - 0.5 for epoch in epochs], self.state['train']['mBCELoss'], 'm-o',label = 'Cross Entropy(train/epoch)')
 

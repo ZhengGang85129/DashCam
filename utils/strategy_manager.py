@@ -17,7 +17,6 @@ class Strategy_Mananger:
        
         self.optimizer = confDICT.get('optimizer', None)
         self.scheduler = confDICT.get('scheduler', None)
-        self.epochs = int(confDICT.get('epochs', 20))
         self.model_dir = confDICT.get('model_dir', 'model_dir')
         self.monitor_dir = confDICT.get('monitor_dir', 'monitor_dir')
         self.trainable_parts = confDICT.get('trainable_parts', ["*"])
@@ -28,7 +27,10 @@ class Strategy_Mananger:
         self.decay_coefficient = confDICT.get('decay_coefficient', 30) 
         self.unfreezing = confDICT.get('unfreezing', None) 
         self.early_stopping = confDICT.get('early_stopping', None) 
-        if self.scheduler["name"] not in SCHEDULER: raise ValueError(f"No such scheduler yet: {self.scheduler['name']}") 
+        #if self.scheduler["name"] not in SCHEDULER: raise ValueError(f"No such scheduler yet: {self.scheduler['name']}") 
+        self.stride = confDICT.get('stride', 2) 
+        self.reweight = confDICT.get('reweight')
+        self.evaluation_check_point_path = confDICT.get('evaluation_check_point_path', None)
         if self.optimizer["name"] not in OPTIMIZER: raise ValueError(f"No such scheduler yet: {self.optimizer['name']}") 
 
 def yaml_content_args(yamlCONTENT) -> Strategy_Mananger:
