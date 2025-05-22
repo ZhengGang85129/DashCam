@@ -195,12 +195,11 @@ def train(args, logger, train_loader: torch.utils.data.DataLoader, model: torch.
     for mini_batch_index, data in enumerate(train_loader):
     
         data_time.update(time.time() - start)
-        X, target, T_diff, _, concerned = data
+        X, target, T_diff, _, _ = data
         N_pos = (target == 1).sum().item()
         N_neg = (target == 0).sum().item() 
         X = X.to(device)
         target = target.to(device)
-        concerned = concerned.to(device)
         optimizer.zero_grad()
         N_pos_sum += N_pos
         N_neg_sum += N_neg
@@ -214,7 +213,7 @@ def train(args, logger, train_loader: torch.utils.data.DataLoader, model: torch.
             scaler.step(optimizer)
             scaler.update()
         ### metric 
-
+        
         # Time measurement
         batch_time.update(time.time() - start)
         current_iter = cur_epoch * dataset_per_epoch + mini_batch_index + 1
@@ -239,7 +238,7 @@ def train(args, logger, train_loader: torch.utils.data.DataLoader, model: torch.
 
         prob = F.softmax(output, dim = 1)
         all_y_pred.append(prob.detach().cpu().numpy())
-        all_y_label.append(target.cpu().numpy())
+        all_y_label.append(target.detach().cpu().numpy())
         
         T_gaps += T_diff.tolist()
         if (((mini_batch_index + 1) % args.print_freq) == 0) or (mini_batch_index + 1 == len(train_loader)):
