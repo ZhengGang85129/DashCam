@@ -45,7 +45,7 @@ class CustomTransforms:
             
             _transform.append(partial(F.rotate, angle = angle))
             
-            _transform.append(partial(F.resize, size = new_size))
+            _transform.append(partial(F.resize, size = new_size, antialias=True))
             
             _transform.append(partial(F.crop, top = i, left = j, height = h, width = w))
             
@@ -57,7 +57,7 @@ class CustomTransforms:
             _transform.append(partial(F.adjust_saturation, saturation_factor = color_jitter_params[2]))
         
         else:
-            _transform.append(partial(F.resize, size = resize_shape))
+            _transform.append(partial(F.resize, size = resize_shape, antialias=True))
 
         if self.model_type == 'baseline':
             _transform.append(transforms.Normalize(
