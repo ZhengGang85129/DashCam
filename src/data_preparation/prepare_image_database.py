@@ -21,8 +21,9 @@ class _Config:
 def prepare_parse(parser_name: str = 'prepare_dataset') -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description = f'{parser_name} script with batch size argument')
-    parser.add_argument('--dataset', type = str, choices = ['train', 'validation', 'test'], required = True)
-    parser.add_argument('--metadata_path', type = str , required = True)
+    parser.add_argument('--dataset', type = str, choices = ['train', 'validation', 'test'])
+    parser.add_argument('--metadata_path', type = str)
+    parser.add_argument('--metadata_frame', type = str)
     parser.add_argument('--extract_frame', action = "store_true")
     args = parser.parse_args()
     return args
@@ -56,7 +57,7 @@ class Video_Processor:
             - 'weight': 1 (sample weight)
             - 'T_diff': difference of frame index to frame of event.
         '''
-        
+        if extract_frame: return
         video_path = Path(f'{self.input_dir}/{video_id:05d}.mp4')    
         assert video_path.exists(), f'No such mp4 file: {video_path}' 
         
@@ -119,12 +120,14 @@ class Video_Processor:
         print('Done')
         print(f'Check: {self.metadata_frame_path}.') 
         
-        if extract_frame and self.dataset != 'test':
+        if self.dataset != 'test':
             self.visualize(n_samples = 3)
          
     def worker(self, video_id, process_fn, extract_frame: bool = False):
         return process_fn(video_id, extract_frame = extract_frame) 
 
+    def read_metadata_frame(self, metadata_frame: str = './dataset/img_database/frame-metadata_train.csv') -> None:
+        self.metadata_frame = pd.read_csv(metadata_frame)
     def visualize(self, n_samples = 3) -> None:
         #plt.figure(figsize = (16, 5))
         
@@ -141,7 +144,7 @@ class Video_Processor:
                 ax.imshow(img)
                 ax.axis('off')
             plt.tight_layout()
-            plt.savefig(self.save_dir / Path(f'/vid_{vid}.png'))
+            plt.savefig(self.save_dir / Path(f'vid_{vid}.png'))
             plt.close()
 def main():
     args = prepare_parse() 
@@ -150,9 +153,13 @@ def main():
     
     processor = Video_Processor(
         metadata_path = args.metadata_path,
-        dataset = args.dataset
+        dataset = args.dataset,
         )
 
-    processor.run(extract_frame = args.extract_frame)
+    if args.extract_frame:
+        processor.run(extract_frame = args.extract_frame)
+    else:
+        processor.read_metadata_frame(args.metadata_frame)
+        processor.visualize()
 if __name__ == "__main__":
     main()
