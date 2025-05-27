@@ -1,4 +1,33 @@
 # DashCam
+This repository contains our solution for the [Kaggle competition](https://www.kaggle.com/competitions/nexar-collision-prediction/overview), where was achieved 16th place (Top7%).
+
+## Model Backbone:
+Our original solution utilized the **R3D-18** backbone. After reviewing the top-5 solutions in the competition, we decided to improve our model by replacing the R3D-18 backbone with **Multi-Scale Vision Transformer v2 (MViT v2)**. This modification led to a significant performance boost, achieving a mean Averaged Precision(mAP) score of **0.843**, surpassing the performance of the 5th-place solution, which also showcases the effectiveness of model-centric improvement.
+
+## Data Preprocessing:
+* Training/Validation Split: We used 1200 training and 300 validation samples. In each epoch, we randomly sampled 16 consecutive frames per video.
+* Exponential Cross-Entropy Loss: We implemented a custom exponential cross-entropy loss to emphasize increasing risk levels closer to an accident event. This approach helped the R3D-18 model achieve **~0.778** on the private leaderboard. However, after switching to MViT v2, we observed a performance drop. To mitigate the discrepancy between two consecutive frames, we conducted extensive hyperparameter tuning and found that a specific value of 1 provided the best solution.
+
+## Data Augmentation:
+For data augmentation, we used the following techniques to enhance the model's robustness and generalization:
+* Color Jitter
+* Random Rotation
+* Horizontal Flip
+  
+## Training Details:
+We employed an AdamW optimizer with a cosine annealing scheduler and early stopping after 10 epochs. The maximum number of epochs was set to 15, but we observed that the model converged between **9 and 11 epochs**.
+
+## Hyperparameter Details:
+We systematically performed hyperparameter optimization using Optuna iteratively, with the metric being the loss. The key hyperparameters tuned were:
+* Learning rate
+* Weight decay rate
+* batch_size
+* Stride size between two consecutive frames
+* Classifier structures
+  
+# Training Time:
+* The model was trainined on RTX-3090, with an average training time of **20 minutes**. 
+
 ## Step 0. Environment setting:
 
 ```
@@ -17,6 +46,8 @@ pip3 install torchsummary
 pip3 install pyyaml
 pip3 install timesformer-pytorch
 pip3 install scikit-learn
+pip3 install mlflow
+pip3 install optuna
 ```
 
 ## Step 1. Dataset Download
@@ -65,37 +96,25 @@ Once you execute the above command, you will see the new csv files:
 ```
 
 
-## Step 3. Training (To-Be-Done)
-Simple command-line example:
+## Step 3. Training
+### 3.1 Simple command-line example:
 ```
-python3 -m scripts.train experiment/mvit2.yaml
+python3 -m scripts.train configs/mvit2.yaml
 ```
-
-## Step 4. Analysis Visualization 
-
-<img src="example/probability.png" alt="Description of the image" width="500"/>
-
-### Step 4.1 Probability distribution across frame indices
-
+### 3.2 For hyperparameter optimization:
+To obtain the best hyperparameters, we have implemented `optuna` lib with n_trials = 50. 
 ```
-python3 ./accident_prediction_vis.py --clip_path dataset/train/train_video/00043.mp4 --model_ckpt CHECKPOINT --filename probability --model_type [baseline:timesformer:swintransformer]
+sh ./scripts/run_experiments.sh
 ```
 
-### Step 4.2 Likelihood & Recall vs Precision curve:
-<table>
-  <tr>
-    <td><img src="example/precision-recall.png" alt="Precision-Recall" width="400"/></td>
-    <td><img src="example/likelihood.png" alt="Likelihood function" width="400"/></td>
-  </tr>
-</table>
 
+## Step 4.Visualization 
+
+<img src="example/negative.gif" alt="Description of the image" width="500"/>
+
+<img src="example/positive.gif" alt="Description of the image" width="500"/>
+One can use the following command to view the risk level over time (frames).
 
 ```
-python3 ./score_assessment.py --model_ckpt ./sliding_window/model_ckpt-epoch01_bs10_lr0.0001.pt --num_workers 8 
-```
-
-## Step 5. Inference
-```
-python3 ./submission.py --num_workers 8 --model_ckpt <path_to_your_ckpt> --model_type baseline
-kaggle competitions submit -c nexar-collision-prediction -f submission.csv -m "Message"
+CONFIG_YAML=configs/mvit_v2.yaml VIDEO_ID=XXX python3 -m visualization.visualize_risk_level 
 ```
