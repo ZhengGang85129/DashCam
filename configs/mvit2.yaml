@@ -1,0 +1,22 @@
+training_strategy: configs/scheduler_mvit_v2.yaml
+seed: 123
+model_type: mvit_v2
+debug: False
+print_freq: 16
+training_dir: dataset/img_database/train
+#dataset/sliding_window/train
+training_csv: dataset/img_database/frame-metadata_train.csv #dataset/sliding_window/train_extracted_clips.csv
+validation_dir: dataset/img_database/validation/ #dataset/sliding_window/validation
+validation_csv: dataset/img_database/frame-metadata_validation.csv #dataset/sliding_window/validation_extracted_clips.csv
+test_dir: dataset/img_database/test
+test_csv: dataset/img_database/test.csv
+scheduler:
+  name: CosineAnnealingLR  
+  eta_min: 1e-6
+total_epochs: 15
+classifier:
+- 512
+- relu
+- dropout:0.1
+- 512
+- relu

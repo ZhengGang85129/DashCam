@@ -1,3 +1,5 @@
+!.gitkeep
+experiment/*
 model/
 model_*/
 train/

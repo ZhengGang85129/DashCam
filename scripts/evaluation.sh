@@ -1,0 +1,1 @@
+python3 -m scripts.prep_submission ./experiment/mvit2.yaml 

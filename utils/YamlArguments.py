@@ -2,14 +2,10 @@
 import yaml
 
 ALLOWED_AUTMENTATION_TYPES = [ "fog", "noise", "gaussian_blur", "color_jitter", "horizontal_flip", "rain_effect" ]
-ALLOWED_MODEL_TYPES = ['timesformer', 'baseline', 'accidentxai', 'swintransformer']
+ALLOWED_MODEL_TYPES = ['timesformer', 'baseline', 'accidentxai', 'swintransformer', "mvit_v2"]
 
 class Args:
     def __init__(self, confDICT):
-        #self.monitor_dir            =   str(confDICT.get('monitor_dir', 'monitor_train'))
-        #self.learning_rate          = float(confDICT.get('learning_rate', 0.0001))
-        #self.epochs                 =   int(confDICT.get('epochs', 20))
-        #self.batch_size             =   int(confDICT.get('batch_size', 10))
         self.num_workers            =   int(confDICT.get('num_workers', 4))
         self.augmentation_types     =       confDICT.get('augmentation_types', None)
         self.augmentation_prob      = float(confDICT.get('augmentation_prob', 0.))
@@ -20,20 +16,29 @@ class Args:
         #self.model_dir              =       confDICT.get('model_dir', 'model_ckpt')
         self.debug                  =  bool(confDICT['debug']) if 'debug' in confDICT else False
         self.print_freq = int(confDICT.get('print_freq', 4))
-        self.decay_coefficient = float(confDICT.get('decay_coefficient', 30))
         
         self.training_dir = str(confDICT.get('training_dir', None))
         self.validation_dir = str(confDICT.get('validation_dir', None))
-        self.evaluation_dir = str(confDICT.get('evaluation_dir', None))
-        self.evaluation_train_dir = str(confDICT.get('evaluation_train_dir', None))
+        self.test_dir = str(confDICT.get('test_dir', None))
+        self.test_csv = str(confDICT.get('test_csv', None))
         self.training_csv = str(confDICT.get('training_csv', None))
         self.validation_csv = str(confDICT.get('validation_csv', None))
-        self.evaluation_csv = str(confDICT.get('evaluation_csv', None))
-        self.evaluation_train_csv = str(confDICT.get('evaluation_train_csv', None))
         
-        self.strategy = str(confDICT.get('strategy', None))
+        
+        self.training_strategy = confDICT.get('training_strategy', None)
         self.classifier = confDICT.get('classifier', None) 
-        self.sampling_approach = str(confDICT.get('sampling_approach', 'uniform'))
+        
+        self.num_train_samples = confDICT.get('num_train_samples', 6000)
+        self.num_val_samples = confDICT.get('num_val_samples', 1200)
+        self.seed = confDICT.get('SEED', 123) 
+        
+        self.total_epochs = confDICT.get('total_epochs', 10)
+        if isinstance(self.total_epochs, str):
+            self.total_epochs = int(self.total_epochs)
+        
+        self.scheduler = confDICT.get('scheduler', None)
+        self.scheduler['T_max'] =  self.total_epochs
+        
          
         if self.augmentation_types is None:
             pass ### if nothing set. use default value
