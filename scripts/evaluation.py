@@ -1,37 +1,19 @@
 import torch
 import torch.nn as nn 
 from utils.tool import get_device
-from typing import Optional
 import torch.nn.functional as F
 import os
 from tqdm import tqdm
-from models.model import get_model
+from models.model import get_model, load_model
 import matplotlib.pyplot as plt
 from src.datasets.accident_dataset import AccidentDataset
 from utils.YamlArguments import load_yaml_file_from_arg
 import sys
 from utils.strategy_manager import get_strategy_manager
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import autocast
 import pandas as pd
 from pathlib import Path
 
-def load_model(args, manager) -> nn.Module:
-    model = get_model(args.model_type)(classifier = args.classifier)
-    if manager.evaluation_check_point_path is None:
-        raise FileNotFoundError(f"The state_dict is None.")
-    elif not os.path.isfile(manager.evaluation_check_point_path):
-        raise FileNotFoundError(f"The state_dict {manager.evaluation_check_point_path} doesn't exist.")
-    saved_state = torch.load(manager.evaluation_check_point_path, map_location = args.device if args.device is not None else 'cpu')
-
-    if isinstance(saved_state, dict):
-        if 'model_state_dict' in saved_state:
-            model.load_state_dict(saved_state['model_state_dict'])
-        else:
-            model.load_state_dict(saved_state)
-    else:
-        model = saved_state
-    
-    return model
 
 #def get_dataloader()-> torch.utils.data.DataLoader:
 def get_dataloader(args, manager):
