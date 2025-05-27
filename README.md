@@ -1,5 +1,10 @@
 # DashCam
+
 This repository contains our solution for the [Kaggle competition](https://www.kaggle.com/competitions/nexar-collision-prediction/overview), where was achieved 16th place (Top7%).
+<div style="display: flex; justify-content: space-between;">
+    <img src="example/negative.gif" alt="Description of the image" width="500"/>
+    <img src="example/positive.gif" alt="Description of the image" width="500"/>
+</div>
 
 ## Model Backbone:
 Our original solution utilized the **R3D-18** backbone. After reviewing the top-5 solutions in the competition, we decided to improve our model by replacing the R3D-18 backbone with **Multi-Scale Vision Transformer v2 (MViT v2)**. This modification led to a significant performance boost, achieving a mean Averaged Precision(mAP) score of **0.843**, surpassing the performance of the 5th-place solution, which also showcases the effectiveness of model-centric improvement.
@@ -110,9 +115,6 @@ sh ./scripts/run_experiments.sh
 
 ## Step 4.Visualization 
 
-<img src="example/negative.gif" alt="Description of the image" width="500"/>
-
-<img src="example/positive.gif" alt="Description of the image" width="500"/>
 One can use the following command to view the risk level over time (frames).
 
 ```
