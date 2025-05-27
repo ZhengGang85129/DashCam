@@ -1,4 +1,4 @@
-training_strategy: experiment/scheduler/mvit_v2/best_param.yaml
+training_strategy: configs/scheduler_mvit_v2.yaml
 seed: 123
 model_type: mvit_v2
 debug: False
@@ -11,13 +11,8 @@ validation_csv: dataset/img_database/frame-metadata_validation.csv #dataset/slid
 test_dir: dataset/img_database/test
 test_csv: dataset/img_database/test.csv
 scheduler:
-  name: CosineAnnealingLR #options: 
+  name: CosineAnnealingLR  
   eta_min: 1e-6
-  #name: ReduceLROnPlateau
-  #mode: min
-  #factor: 0.5
-  #patience: 3
-  #min_lr: 1e-6
 total_epochs: 15
 classifier:
 - 512

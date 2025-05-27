@@ -1,6 +1,6 @@
 trainer_name: mvit2_best_v0  #single
 batch_size: 12
-decay_coefficient: # 
+decay_coefficient: 30 # 
 resume: False # If True, the model will load parameters from `check_point_path`
 optim_resume: False # If True, the optimizer will load saved state from `optim_check_point_path` 
 optimizer:
@@ -41,6 +41,7 @@ unfreezing:
   freeze_bn: true
 early_stopping:
   delta: 0.001
-  patience: 5
+  patience: 10
 gamma: 0 # focal loss
 stride: 1
+evaluation_check_point_path: experiment/output/mvit2_test/best_model_ckpt_mvit2_best_v0.pt
