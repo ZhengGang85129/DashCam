@@ -206,8 +206,8 @@ def train(args, logger, train_loader: torch.utils.data.DataLoader, model: torch.
         with autocast():
             output = model(X)
             #bceloss = bceloss_fn(output, target)
-            #loss = criterion(output, target, T_diff)
-            loss = criterion(output, target)
+            loss = criterion(output, target, T_diff)
+            #loss = criterion(output, target)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5) # Gradient clip
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -365,8 +365,8 @@ def validate(args, logger, val_loader: torch.utils.data.DataLoader, model: torch
             target = target.to(device)
             with autocast():
                 output = model(X)
-                #loss = criterion(output, target, T_diff)
-                loss = criterion(output, target)
+                loss = criterion(output, target, T_diff)
+                #loss = criterion(output, target)
                 bceloss_meter.update(bceloss_fn(output, target).item())
                 #loss = criterion(output, target)
             
@@ -464,7 +464,7 @@ def train_fn(args, manager, logger, device):
         #Loss_fn = TemporalBinaryCrossEntropy(decay_coefficient = manager.decay_coefficient, gamma = manager.gamma) 
         #Loss_fn = FocalLoss(gamma = manager.gamma)
         criterion = nn.CrossEntropyLoss()
-
+        criterion = TemporalBinaryCrossEntropy(decay_coefficient = manager.decay_coefficient)
         optimizer = get_optimizer(model = model,optimizer = manager.optimizer)
         scheduler = get_scheduler(scheduler = args.scheduler, optimizer = optimizer) 
 
