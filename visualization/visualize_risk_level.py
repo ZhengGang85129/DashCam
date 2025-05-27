@@ -14,7 +14,7 @@ from src.datasets.transforms import CustomTransforms
 class _Config:
     nframes: int = 16
     model_type:str = 'mvit_v2'
-    plot_region: int = 600
+    plot_region: int = 200
     input_folder: Path = Path('./dataset/img_database/validation')
     output_folder: Path = Path('visualization/output')
     metadata: Path = Path('dataset/img_database/frame-metadata_validation.csv')
@@ -36,7 +36,7 @@ class Predictor:
     def load_video_frame(self, video_id: int = 343) -> None:
         
         frame_metadata = self.metadata[self.metadata.video_id == video_id]
-        self.plot_region = min(self.plot_region, frame_metadata.last_frame - self.nframes + 1) 
+        self.plot_region = min(self.plot_region, frame_metadata.last_frame.unique().item() - self.nframes + 1) 
         frames_in_window = frame_metadata[(frame_metadata.last_frame - self.plot_region - self.nframes  + 1 < frame_metadata.frame) &(frame_metadata.frame <= frame_metadata.last_frame)] 
         
         img_folder = _Config.input_folder / Path(f'video_{video_id:05d}')
@@ -97,7 +97,8 @@ if __name__ == '__main__':
     import os
     from utils.YamlArguments import load_yaml_file_from_arg
     from utils.strategy_manager import get_strategy_manager
-    config_path = os.getenv("CONFIG_YAML", "experiment/mvit2.yaml")
+    config_path = os.getenv("CONFIG_YAML", "configs/mvit2.yaml")
+    video_id = os.getenv("VIDEO_ID", "366")
     use_yaml_file = config_path
     args = load_yaml_file_from_arg(use_yaml_file)
     args.device = get_device() 
@@ -105,7 +106,6 @@ if __name__ == '__main__':
         raise ValueError('Please provide configuration file.')
     manager = get_strategy_manager(args.training_strategy) 
     _Config.output_folder.mkdir(parents = True, exist_ok=True)
-    video_id = 991
     device = get_device()
     
     predictor = Predictor(args, manager)
