@@ -15,8 +15,6 @@ scheduler:
   eta_min: 1e-6
 total_epochs: 15
 classifier:
-- 512
+- 64
 - relu
-- dropout:0.1
-- 512
-- relu
+- dropout:0.25
