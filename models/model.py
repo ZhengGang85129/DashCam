@@ -30,7 +30,7 @@ def load_model(args, manager) -> nn.Module:
         raise FileNotFoundError(f"The state_dict is None.")
     elif not os.path.isfile(manager.evaluation_check_point_path):
         raise FileNotFoundError(f"The state_dict {manager.evaluation_check_point_path} doesn't exist.")
-    saved_state = torch.load(manager.evaluation_check_point_path, map_location = args.device if args.device is not None else 'cpu')
+    saved_state = torch.load(manager.evaluation_check_point_path, map_location = 'cpu')
 
     if isinstance(saved_state, dict):
         if 'model_state_dict' in saved_state:
@@ -39,6 +39,6 @@ def load_model(args, manager) -> nn.Module:
             model.load_state_dict(saved_state)
     else:
         model = saved_state
-    
+    model.to(args.device) 
     return model
     

@@ -1,13 +1,14 @@
-trainer_name: mvit2_best_v0  #single
-batch_size: 12
+trainer_name: mvit2_weighted_positive  #single
+batch_size: 4
 decay_coefficient: 30 # 
+alpha: 6.0
 resume: False # If True, the model will load parameters from `check_point_path`
 optim_resume: False # If True, the optimizer will load saved state from `optim_check_point_path` 
 optimizer:
   name: adamw
-  weight_decay: 0.0006769427732364401
+  weight_decay: 0.0006558382200053323
   differential_lr:
-    classifier: 1.1154569832519697e-05
+    classifier: 7.676615701494078e-05
     blocks.0: 1.0e-5
     blocks.1: 1.0e-5
     blocks.2: 1.0e-5
@@ -29,8 +30,8 @@ reweight:
   epoch:
     - 1
 
-model_dir: experiment/output/mvit2_test # will store the trained checkpoint under this folder
-monitor_dir: experiment/output/mvit2_test_monitor # will store the metric points under this. Currently, this will be overwritten by a new training process.
+model_dir: experiment/output/mvit2_test-mvit2_weighted_positive # will store the trained checkpoint under this folder
+monitor_dir: experiment/output/mvit2_test_monitor-mvit2_weighted_positive # will store the metric points under this. Currently, this will be overwritten by a new training process.
 monitor_overwrite: true
 check_point_path: #valid only if resume is True
 optim_check_point_path: #valid only if optim_resume is True
@@ -43,5 +44,5 @@ early_stopping:
   delta: 0.001
   patience: 10
 gamma: 0 # focal loss
-stride: 1
-evaluation_check_point_path: experiment/output/mvit2_test/best_model_ckpt_mvit2_best_v0.pt
+stride: 4
+evaluation_check_point_path: experiment/output/mvit2_test-mvit2_weighted_positive/best_model_ckpt_mvit2_weighted_positive.pt

@@ -9,9 +9,9 @@ import random
 import torch.backends.cudnn as cudnn
 import torch
 
-def get_device()->torch.device:
+def get_device(device_index:int = 0)->torch.device:
     if torch.cuda.is_available():
-        device = torch.device('cuda')
+        device = torch.device(f'cuda:{device_index}')
         print("CUDA is available. Using GPU.") 
     else:
         device = torch.device('cpu')
