@@ -28,6 +28,7 @@ class Strategy_Mananger:
         self.unfreezing = confDICT.get('unfreezing', None) 
         self.early_stopping = confDICT.get('early_stopping', None) 
         #if self.scheduler["name"] not in SCHEDULER: raise ValueError(f"No such scheduler yet: {self.scheduler['name']}") 
+        self.alpha = confDICT.get('alpha', 2)
         self.stride = confDICT.get('stride', 2) 
         self.reweight = confDICT.get('reweight')
         self.evaluation_check_point_path = confDICT.get('evaluation_check_point_path', None)
