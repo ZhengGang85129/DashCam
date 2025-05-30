@@ -7,11 +7,11 @@ This repository contains our solution for the [Kaggle competition](https://www.k
 </div>
 
 ## Model Backbone:
-Our original solution utilized the **R3D-18** backbone. After reviewing the top-5 solutions in the competition, we decided to improve our model by replacing the R3D-18 backbone with **Multi-Scale Vision Transformer v2 (MViT v2)**. This modification led to a significant performance boost, achieving a mean Averaged Precision(mAP) score of **0.843**, surpassing the performance of the 5th-place solution, which also showcases the effectiveness of model-centric improvement.
+Our original solution utilized the **R3D-18** backbone. After reviewing the top-5 solutions in the competition, we decided to improve our model by replacing the R3D-18 backbone with **Multi-Scale Vision Transformer v2 (MViT v2)**. This modification led to a significant performance boost, achieving a mean Averaged Precision(mAP) score of **0.843** on private test dataset, surpassing the performance of the 5th-place solution, which also showcases the effectiveness of model-centric improvement.
 
 ## Data Preprocessing:
 * Training/Validation Split: We used 1200 training and 300 validation samples. In each epoch, we randomly sampled 16 consecutive frames per video.
-* Exponential Cross-Entropy Loss: We implemented a custom exponential cross-entropy loss to emphasize increasing risk levels closer to an accident event. This approach helped the R3D-18 model achieve **~0.778** on the private leaderboard. However, after switching to MViT v2, we observed a performance drop. To mitigate the discrepancy between two consecutive frames, we conducted extensive hyperparameter tuning and found that a specific value of 1 provided the best solution.
+* Exponential Cross-Entropy Loss: We implemented a custom exponential cross-entropy loss to emphasize increasing risk levels closer to an accident event. This approach helped the **R3D-18** model/**MViT v2* achieve **~0.778/0.843** on the private leaderboard. To mitigate the discrepancy between two consecutive frames, we conducted extensive hyperparameter tuning and found that a specific value of 2 provided the best solution.
 
 ## Data Augmentation:
 For data augmentation, we used the following techniques to enhance the model's robustness and generalization:
@@ -24,11 +24,12 @@ We employed an AdamW optimizer with a cosine annealing scheduler and early stopp
 
 ## Hyperparameter Details:
 We systematically performed hyperparameter optimization using Optuna iteratively, with the metric being the loss. The key hyperparameters tuned were:
-* Learning rate
-* Weight decay rate
-* batch_size
-* Stride size between two consecutive frames
-* Classifier structures
+* Learning rate: 7.148386134287289e-05
+* Weight decay rate: 0.0012117114541865517
+* alpha: 5.75
+* batch_size: 12
+* Stride size between two consecutive frames: 2
+* Classifier structures: [192, relu, dropout:0.25]
   
 # Training Time:
 * The model was trainined on RTX-3090, with an average training time of **20 minutes**. 
