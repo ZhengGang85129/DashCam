@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 from typing import Union
-
+import numpy as np 
 class AnticipationLoss(nn.Module):
     def __init__(self, frame_of_accident:float = 90, n_frames: float = 100, decay_coefficient: float = 30, device: Union[torch.device, None] = None, gamma: float = 1):
         super(AnticipationLoss, self).__init__()
@@ -10,7 +10,7 @@ class AnticipationLoss(nn.Module):
         self.n_frames = n_frames
         self.frames = torch.arange(0, n_frames)
         self.f = decay_coefficient 
-        pos_penalty = torch.exp(-(F.relu(self.frame_of_accident - self.frames)/self.f))
+        pos_penalty = torch.exp(-(F.relu(self.frame_of_accident - self.frames + 15)/self.f))
         neg_penalty = torch.ones([n_frames])
         self.penalty = torch.stack([neg_penalty, pos_penalty], dim = 1) # shape: [n_frames, 2]
         self.ce_loss = nn.CrossEntropyLoss(reduction = 'none')
@@ -41,24 +41,31 @@ class AnticipationLoss(nn.Module):
         #print(loss)
 
 class TemporalBinaryCrossEntropy(nn.Module):
-    def __init__(self, decay_coefficient:int = 20, gamma: float = 1):
+    
+    def __init__(self, decay_coefficient:int = 20, alpha: float = 1):
         super(TemporalBinaryCrossEntropy, self).__init__()
          
         self.decay_coefficient = decay_coefficient
         self.ce_loss = nn.CrossEntropyLoss(reduction='none', )
-        self.gamma = gamma  
+        self.alpha = alpha
+        self.Lambda = alpha/self.expected_value(decay_coefficient)  
+    def expected_value(self,T)->float:
+        x = np.arange(0, 46)
+        expectation = np.mean(np.exp(-x / T))
+        return expectation
+    
     def forward(self, logit: torch.Tensor, target: torch.Tensor, T_diff: torch.Tensor) -> torch.Tensor:
         '''
         logit: (N, 2)
         target: (N)
         T_diff: (N)
         ''' 
-        pos_weight = torch.exp(-F.relu(T_diff)/self.decay_coefficient).to(target.device)
+        pos_weight = self.Lambda*torch.exp(-F.relu(T_diff+15)/self.decay_coefficient).to(target.device)
         neg_weight = torch.ones_like(target).to(target.device)
         one_hot = F.one_hot(target, num_classes = 2).to(logit.device)
         weight = torch.stack([neg_weight, pos_weight], dim = 1).to(logit.device)
         probs = F.softmax(logit, dim = 1)
-        sample_weights = torch.sum(one_hot * weight * ((1- probs) ** self.gamma), dim=1)
+        sample_weights = torch.sum(one_hot * weight, dim=1)
         
         #print(target, output)
         per_sample_loss = self.ce_loss(logit, target)
