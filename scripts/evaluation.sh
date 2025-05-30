@@ -1,1 +1,1 @@
-python3 -m scripts.prep_submission ./experiment/mvit2.yaml 
+python3 -m scripts.prep_submission ./configs/mvit2.yaml 

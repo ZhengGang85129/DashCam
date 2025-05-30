@@ -1,1 +1,1 @@
-python3 -m scripts.evaluation ./experiment/mvit2.yaml 
+CUDA_VISIBLE_DEVICES=0 python3 -m scripts.evaluation ./configs/mvit2.yaml 

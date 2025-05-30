@@ -13,7 +13,7 @@ from utils.strategy_manager import get_strategy_manager
 from torch.cuda.amp import autocast
 import pandas as pd
 from pathlib import Path
-
+import numpy as np
 
 #def get_dataloader()-> torch.utils.data.DataLoader:
 def get_dataloader(args, manager):
@@ -23,15 +23,15 @@ def get_dataloader(args, manager):
         csv_file = args.test_csv,
         mode = 'evaluation',
         model_type = args.model_type,
-        stride = 1,
+        stride = manager.stride,
         frame_per_window = 16,
         
     )
     loader = torch.utils.data.DataLoader(
         dataset, 
-        batch_size = 16,
-        num_workers = manager.batch_size,
-        pin_memory = True
+        batch_size = 8,
+        num_workers = args.num_workers ,
+        pin_memory = False
     )
     return loader
 
@@ -42,34 +42,35 @@ def plot_prob(probs, manager):
     plt.savefig(Path(manager.monitor_dir) / f'likelihood_{manager.trainer_name}.png')
  
 def evaluate_fn(args, manager) -> None:
-    
+    manager.evaluation_check_point_path = 'mlartifacts/0/3e09264b4c904dd499be80b37e3a05ab/artifacts/model/mvit_v2mvit2_weighted_positive/data/model.pth' 
     loader = get_dataloader(args, manager=manager) 
     print(len(loader))  
     model = load_model(args, manager) 
-    model.to(args.device)
-    
+    print(torch.cuda.memory_allocated(args.device) / (1024 ** 2) ) 
     probs = []
     ids = []
-    for batch in tqdm(loader):
-        frames, frame_ids = batch
-        frames = frames.to(args.device)
-        
-        with autocast():
-            output = model(frames)
-            prob = F.softmax(output, dim = 1)
-            probs.append(prob)
-            ids.append(frame_ids)
-    probs = torch.cat(probs).flatten()
-    ids = torch.cat(ids).flatten()
+    model.eval()
+    with torch.no_grad():
+        for batch in tqdm(loader):
+            frames, frame_ids = batch
+            frames = frames.to(args.device)
+            
+            with autocast():
+                output = model(frames)
+                prob = F.softmax(output, dim = 1)
+                probs.append(prob[..., 1].cpu().numpy())
+                ids.append(frame_ids.cpu().numpy())
+    probs = np.concatenate(probs, axis = 0).flatten()
+    ids = np.concatenate(ids, axis = 0).flatten()
     dataframe = []
     
     probs_list = [] 
     for id, prob in zip(ids, probs):
         dataframe.append({
-            "id": id.item(),
-            "score": prob.item()
+            "id": int(id),
+            "score": float(prob)
         })
-        probs_list.append(prob.detach().to('cpu')) 
+        probs_list.append(prob) 
     submission = pd.DataFrame(dataframe)    
     submission.to_csv(f'submission-{manager.trainer_name}.csv' if manager.trainer_name else 'submission.csv', index = False)
     plot_prob(probs= probs_list, manager = manager)
@@ -82,7 +83,7 @@ def main():
         raise ValueError('Please provide configuration file.')
     
     manager = get_strategy_manager(args.training_strategy)
-    args.device = get_device() 
+    args.device = get_device(0) 
     evaluate_fn(args = args, manager=manager) 
     
         

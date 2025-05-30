@@ -195,18 +195,19 @@ def train(args, logger, train_loader: torch.utils.data.DataLoader, model: torch.
     for mini_batch_index, data in enumerate(train_loader):
     
         data_time.update(time.time() - start)
-        X, target, T_diff, _, _ = data
+        X, target, T_diff, _, positive = data
         N_pos = (target == 1).sum().item()
         N_neg = (target == 0).sum().item() 
         X = X.to(device)
         target = target.to(device)
+        positive = positive.to(device)
         optimizer.zero_grad()
         N_pos_sum += N_pos
         N_neg_sum += N_neg
         with autocast():
             output = model(X)
             #bceloss = bceloss_fn(output, target)
-            loss = criterion(output, target, T_diff)
+            loss = criterion(output, positive, T_diff)
             #loss = criterion(output, target)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 5) # Gradient clip
             scaler.scale(loss).backward()
@@ -360,14 +361,15 @@ def validate(args, logger, val_loader: torch.utils.data.DataLoader, model: torch
     with torch.no_grad():
         for mini_batch_index, data in enumerate(val_loader):
             data_time.update(time.time() - start)
-            X, target, T_diff, fid, concerned = data
+            X, target, T_diff, _, positive = data
             X = X.to(device)
             target = target.to(device)
+            positive = positive.to(device)
             with autocast():
                 output = model(X)
-                loss = criterion(output, target, T_diff)
+                loss = criterion(output, positive, T_diff)
                 #loss = criterion(output, target)
-                bceloss_meter.update(bceloss_fn(output, target).item())
+                bceloss_meter.update(bceloss_fn(output, positive).item())
                 #loss = criterion(output, target)
             
             positive, negative, true_case, false_case = case_counting(mode = 'volume', output = output, target = target)
@@ -464,7 +466,7 @@ def train_fn(args, manager, logger, device):
         #Loss_fn = TemporalBinaryCrossEntropy(decay_coefficient = manager.decay_coefficient, gamma = manager.gamma) 
         #Loss_fn = FocalLoss(gamma = manager.gamma)
         criterion = nn.CrossEntropyLoss()
-        criterion = TemporalBinaryCrossEntropy(decay_coefficient = manager.decay_coefficient)
+        criterion = TemporalBinaryCrossEntropy(decay_coefficient = manager.decay_coefficient, alpha = manager.alpha)
         optimizer = get_optimizer(model = model,optimizer = manager.optimizer)
         scheduler = get_scheduler(scheduler = args.scheduler, optimizer = optimizer) 
 
@@ -518,11 +520,13 @@ def train_fn(args, manager, logger, device):
         mlflow.log_param("epochs", args.total_epochs) 
         mlflow.log_param("classifier", args.classifier)       
         mlflow.log_param("classifier_lr", manager.optimizer['differential_lr']['classifier']) 
-        
+        mlflow.log_param("weight_decay", manager.optimizer['weight_decay'])
+        mlflow.log_param("alpha", manager.alpha) 
         mlflow.log_param("stride", manager.stride) 
         mlflow.log_param("early_stop_patience", manager.early_stopping['patience'])
         mlflow.log_param("delta", manager.early_stopping['delta']) 
         mlflow.log_param("unfreezing_strategy", manager.unfreezing) 
+        mlflow.log_param("decay_coefficient", manager.decay_coefficient) 
         
         patience_counter = 0
         prev_loss = math.inf
@@ -571,7 +575,7 @@ def train_fn(args, manager, logger, device):
                 best_point_metrics['current_epoch'] = cur_epoch + 1 
                 prev_loss = valid_metrics['mLoss']
                 patience_counter = 0
-                mlflow.pytorch.log_model(model, f"model/{args.model_type}", conda_env = conda_env, registered_model_name = args.model_type, signature = signature, input_example = input_example.cpu().detach().numpy())
+                mlflow.pytorch.log_model(model, f"model/{args.model_type}{tag}", conda_env = conda_env, registered_model_name = args.model_type, signature = signature, input_example = input_example.cpu().detach().numpy())
             else:
                 patience_counter  += 1
             
@@ -598,7 +602,7 @@ def train_fn(args, manager, logger, device):
                         continue
                 
             ''' 
-    return best_point_metrics['mLoss']
+    return best_point_metrics['mAcc']
 
 
         

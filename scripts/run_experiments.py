@@ -3,11 +3,10 @@ import optuna
 from utils.YamlArguments import load_yaml_file_from_arg
 import sys
 from utils.strategy_manager import get_strategy_manager
-from utils.scheduler import get_scheduler
 
 def objective(trial):
     
-    args = load_yaml_file_from_arg('./experiment/mvit2.yaml')
+    args = load_yaml_file_from_arg('./configs/mvit2.yaml')
     
     logger = get_logger()
     device = get_device()
@@ -21,14 +20,14 @@ def objective(trial):
     
     manager = get_strategy_manager(args.training_strategy)
     
-    manager.optimizer['differential_lr']['classifier'] = trial.suggest_float("classifier_lr", 1e-5, 1e-2, log = True)
+    manager.optimizer['differential_lr']['classifier'] = trial.suggest_float("classifier_lr", 1e-5, 1e-4)
     
     manager.optimizer['weight_decay'] = trial.suggest_float('weight_decay', 1e-4, 1e-2, log = True) 
     
     manager.batch_size = trial.suggest_categorical("batch_size", [4, 8, 12])
-    
+    #manager.decay_coefficient = trial.suggest_categorical("decay_coefficient", [15, 30, 45]) 
     manager.stride = trial.suggest_categorical("stride", [1, 2, 3, 4])
-    
+    manager.alpha = trial.suggest_float("alpha", 3, 8, step = 0.25) 
     depth = trial.suggest_int("depth",1, 3)
     dropout_rate = trial.suggest_float("dropout_rate", 0.05, 0.3, step = 0.05)
     hidden_dim = trial.suggest_int("hidden_dim", 64, 512, step = 64)
@@ -45,7 +44,7 @@ def objective(trial):
     return train_fn(args = args, manager = manager, logger = logger, device = device) 
 
 def run_optuna():
-    study = optuna.create_study(direction = 'minimize')
+    study = optuna.create_study(direction = 'maximize')
     study.optimize(objective, n_trials = 50)
 
     print("Best parameters:", study.best_params)

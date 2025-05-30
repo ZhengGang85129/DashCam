@@ -41,14 +41,14 @@ def get_dataloader(args, manager):
         csv_file = args.test_csv,
         mode = 'evaluation',
         model_type = args.model_type,
-        stride = 1,
+        stride = manager.stride,
         frame_per_window = 16,
         
     )
     loader = torch.utils.data.DataLoader(
         dataset, 
         batch_size = 16,
-        num_workers = manager.batch_size,
+        num_workers =  args.num_workers,
         pin_memory = True
     )
     return loader
@@ -62,6 +62,7 @@ def plot_prob(probs, manager):
 def evaluate_fn(args, manager) -> None:
     
     loader = get_dataloader(args, manager=manager) 
+    manager.evaluation_check_point_path = 'mlartifacts/0/23671e448fb04c2dab77c9a3aa999901/artifacts/model/mvit_v2mvit2_weighted_positive/data/model.pth'
     model = load_model(args, manager) 
     model.to(args.device)
     model.eval() 
